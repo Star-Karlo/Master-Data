@@ -1,6 +1,6 @@
 SERVICE := masterdata-service
 
-.PHONY: tools proto build run test test-integration lint tidy swagger seed seed-dry docker
+.PHONY: tools proto build run test test-integration test-integration-up test-integration-down lint tidy swagger seed seed-dry docker
 
 # Install the development tooling this repo needs.
 tools:
@@ -36,10 +36,28 @@ swagger:
 	swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
 	gofmt -w docs
 
-# Integration tests run against a real database. They carry a build tag, so
-# `make test` never picks them up, and they skip themselves when MONGO_TEST_URI is
-# unset. `make -C .. test-integration-up` starts throwaway containers.
-MONGO_TEST_URI ?= mongodb://localhost:27017
+# ---------------------------------------------------------------------------
+# Integration tests
+#
+# These carry a build tag, so `make test` never compiles them, and they skip
+# themselves when MONGO_TEST_URI is unset. They cover what unit tests structurally
+# cannot: whether the indexes declared at startup actually exist, and whether
+# the geospatial and unique constraints behave as intended.
+# ---------------------------------------------------------------------------
+
+IT_PORT ?= 57017
+MONGO_TEST_URI ?= mongodb://localhost:$(IT_PORT)
+
+# A throwaway database on a non-default port, so it cannot collide with a
+# MongoDB you already run or with another service's test container.
+test-integration-up:
+	docker run -d --name karlo-masterdata-it-mongo -p $(IT_PORT):27017 mongo:7
+	@echo "waiting for mongodb..."
+	@until docker exec karlo-masterdata-it-mongo mongosh --quiet --eval 'db.adminCommand("ping")' >/dev/null 2>&1; do sleep 1; done
+	@echo "ready. Run 'make test-integration'."
+
+test-integration-down:
+	-docker rm -f karlo-masterdata-it-mongo
 
 test-integration:
 	MONGO_TEST_URI="$(MONGO_TEST_URI)" go test -tags=integration ./tests/integration/... -race -v
