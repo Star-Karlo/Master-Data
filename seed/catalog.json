@@ -1,0 +1,149 @@
+{
+  "truckType": [
+    { "code": "CDE",      "name": "Colt Diesel Engkel",   "sortOrder": 10, "attributes": { "maxWeightKg": 2000,  "maxVolumeM3": 7.5,  "axles": 2 } },
+    { "code": "CDD",      "name": "Colt Diesel Double",   "sortOrder": 20, "attributes": { "maxWeightKg": 5000,  "maxVolumeM3": 17,   "axles": 2 } },
+    { "code": "FUSO",     "name": "Fuso",                 "sortOrder": 30, "attributes": { "maxWeightKg": 8000,  "maxVolumeM3": 28,   "axles": 2 } },
+    { "code": "TRONTON",  "name": "Tronton",              "sortOrder": 40, "attributes": { "maxWeightKg": 15000, "maxVolumeM3": 45,   "axles": 3 } },
+    { "code": "TRAILER20","name": "Trailer 20 Feet",      "sortOrder": 50, "attributes": { "maxWeightKg": 20000, "maxVolumeM3": 33,   "axles": 4 } },
+    { "code": "TRAILER40","name": "Trailer 40 Feet",      "sortOrder": 60, "attributes": { "maxWeightKg": 26000, "maxVolumeM3": 67,   "axles": 5 } },
+    { "code": "WINGBOX",  "name": "Wingbox",              "sortOrder": 70, "attributes": { "maxWeightKg": 20000, "maxVolumeM3": 60,   "axles": 3 } }
+  ],
+  "truckBody": [
+    { "code": "BAK",      "name": "Bak Terbuka",   "sortOrder": 10 },
+    { "code": "BOX",      "name": "Box",           "sortOrder": 20 },
+    { "code": "WINGBOX",  "name": "Wingbox",       "sortOrder": 30 },
+    { "code": "REEFER",   "name": "Reefer",        "sortOrder": 40, "attributes": { "temperatureControlled": true } },
+    { "code": "TANKI",    "name": "Tangki",        "sortOrder": 50, "attributes": { "liquid": true } },
+    { "code": "FLATBED",  "name": "Flatbed",       "sortOrder": 60 },
+    { "code": "DUMP",     "name": "Dump Truck",    "sortOrder": 70 }
+  ],
+  "truckHead": [
+    { "code": "HEAD_2AXLE", "name": "Head 2 Axle", "sortOrder": 10 },
+    { "code": "HEAD_3AXLE", "name": "Head 3 Axle", "sortOrder": 20 }
+  ],
+  "brand": [
+    { "code": "HINO",       "name": "Hino",        "sortOrder": 10 },
+    { "code": "MITSUBISHI", "name": "Mitsubishi",  "sortOrder": 20 },
+    { "code": "ISUZU",      "name": "Isuzu",       "sortOrder": 30 },
+    { "code": "UD",         "name": "UD Trucks",   "sortOrder": 40 },
+    { "code": "SCANIA",     "name": "Scania",      "sortOrder": 50 },
+    { "code": "VOLVO",      "name": "Volvo",       "sortOrder": 60 },
+    { "code": "MERCEDES",   "name": "Mercedes-Benz","sortOrder": 70 },
+    { "code": "TOYOTA",     "name": "Toyota",      "sortOrder": 80 }
+  ],
+  "cargoType": [
+    { "code": "GENERAL",     "name": "General Cargo",   "sortOrder": 10 },
+    { "code": "FMCG",        "name": "FMCG",            "sortOrder": 20 },
+    { "code": "CONTAINER",   "name": "Container",       "sortOrder": 30 },
+    { "code": "BULK",        "name": "Bulk",            "sortOrder": 40 },
+    { "code": "LIQUID",      "name": "Liquid",          "sortOrder": 50 },
+    { "code": "HEAVY",       "name": "Heavy Equipment", "sortOrder": 60 },
+    { "code": "COLD",        "name": "Cold Chain",      "sortOrder": 70, "attributes": { "requiresReefer": true } },
+    { "code": "DANGEROUS",   "name": "Dangerous Goods", "sortOrder": 80, "attributes": { "requiresPermit": true } }
+  ],
+  "itemType": [
+    { "code": "PALLET", "name": "Pallet",  "sortOrder": 10 },
+    { "code": "CARTON", "name": "Karton",  "sortOrder": 20 },
+    { "code": "SACK",   "name": "Karung",  "sortOrder": 30 },
+    { "code": "DRUM",   "name": "Drum",    "sortOrder": 40 },
+    { "code": "CRATE",  "name": "Peti",    "sortOrder": 50 },
+    { "code": "UNIT",   "name": "Unit",    "sortOrder": 60 }
+  ],
+  "itemCharacter": [
+    { "code": "FRAGILE",     "name": "Mudah Pecah",    "sortOrder": 10 },
+    { "code": "STACKABLE",   "name": "Dapat Ditumpuk", "sortOrder": 20 },
+    { "code": "PERISHABLE",  "name": "Mudah Rusak",    "sortOrder": 30 },
+    { "code": "FLAMMABLE",   "name": "Mudah Terbakar", "sortOrder": 40 },
+    { "code": "OVERSIZED",   "name": "Ukuran Besar",   "sortOrder": 50 }
+  ],
+  "paymentType": [
+    { "code": "TOP_14",  "name": "Term of Payment 14 Hari", "sortOrder": 10, "attributes": { "days": 14 } },
+    { "code": "TOP_30",  "name": "Term of Payment 30 Hari", "sortOrder": 20, "attributes": { "days": 30 } },
+    { "code": "TOP_45",  "name": "Term of Payment 45 Hari", "sortOrder": 30, "attributes": { "days": 45 } },
+    { "code": "TOP_60",  "name": "Term of Payment 60 Hari", "sortOrder": 40, "attributes": { "days": 60 } },
+    { "code": "CBD",     "name": "Cash Before Delivery",    "sortOrder": 50, "attributes": { "days": 0 } },
+    { "code": "COD",     "name": "Cash on Delivery",        "sortOrder": 60, "attributes": { "days": 0 } }
+  ],
+  "pricingType": [
+    { "code": "PER_TRIP",   "name": "Per Rit",       "sortOrder": 10 },
+    { "code": "PER_KG",     "name": "Per Kilogram",  "sortOrder": 20 },
+    { "code": "PER_CBM",    "name": "Per CBM",       "sortOrder": 30 },
+    { "code": "PER_KM",     "name": "Per Kilometer", "sortOrder": 40 },
+    { "code": "LUMPSUM",    "name": "Lumpsum",       "sortOrder": 50 }
+  ],
+  "requirement": [
+    { "code": "TERPAL",       "name": "Terpal",             "sortOrder": 10 },
+    { "code": "TALI",         "name": "Tali Pengikat",      "sortOrder": 20 },
+    { "code": "GPS",          "name": "GPS Tracker",        "sortOrder": 30 },
+    { "code": "KENEK",        "name": "Kenek",              "sortOrder": 40 },
+    { "code": "ASURANSI",     "name": "Asuransi Muatan",    "sortOrder": 50 },
+    { "code": "SEAL",         "name": "Segel Kontainer",    "sortOrder": 60 }
+  ],
+  "currency": [
+    { "code": "IDR", "name": "Rupiah",        "sortOrder": 10, "attributes": { "symbol": "Rp", "decimals": 0 } },
+    { "code": "USD", "name": "US Dollar",     "sortOrder": 20, "attributes": { "symbol": "$",  "decimals": 2 } },
+    { "code": "SGD", "name": "Singapore Dollar","sortOrder": 30, "attributes": { "symbol": "S$", "decimals": 2 } }
+  ],
+  "provinsi": [
+    { "code": "11", "name": "Aceh",                    "sortOrder": 11 },
+    { "code": "12", "name": "Sumatera Utara",          "sortOrder": 12 },
+    { "code": "13", "name": "Sumatera Barat",          "sortOrder": 13 },
+    { "code": "14", "name": "Riau",                    "sortOrder": 14 },
+    { "code": "15", "name": "Jambi",                   "sortOrder": 15 },
+    { "code": "16", "name": "Sumatera Selatan",        "sortOrder": 16 },
+    { "code": "17", "name": "Bengkulu",                "sortOrder": 17 },
+    { "code": "18", "name": "Lampung",                 "sortOrder": 18 },
+    { "code": "19", "name": "Kepulauan Bangka Belitung","sortOrder": 19 },
+    { "code": "21", "name": "Kepulauan Riau",          "sortOrder": 21 },
+    { "code": "31", "name": "DKI Jakarta",             "sortOrder": 31 },
+    { "code": "32", "name": "Jawa Barat",              "sortOrder": 32 },
+    { "code": "33", "name": "Jawa Tengah",             "sortOrder": 33 },
+    { "code": "34", "name": "DI Yogyakarta",           "sortOrder": 34 },
+    { "code": "35", "name": "Jawa Timur",              "sortOrder": 35 },
+    { "code": "36", "name": "Banten",                  "sortOrder": 36 },
+    { "code": "51", "name": "Bali",                    "sortOrder": 51 },
+    { "code": "52", "name": "Nusa Tenggara Barat",     "sortOrder": 52 },
+    { "code": "53", "name": "Nusa Tenggara Timur",     "sortOrder": 53 },
+    { "code": "61", "name": "Kalimantan Barat",        "sortOrder": 61 },
+    { "code": "62", "name": "Kalimantan Tengah",       "sortOrder": 62 },
+    { "code": "63", "name": "Kalimantan Selatan",      "sortOrder": 63 },
+    { "code": "64", "name": "Kalimantan Timur",        "sortOrder": 64 },
+    { "code": "65", "name": "Kalimantan Utara",        "sortOrder": 65 },
+    { "code": "71", "name": "Sulawesi Utara",          "sortOrder": 71 },
+    { "code": "72", "name": "Sulawesi Tengah",         "sortOrder": 72 },
+    { "code": "73", "name": "Sulawesi Selatan",        "sortOrder": 73 },
+    { "code": "74", "name": "Sulawesi Tenggara",       "sortOrder": 74 },
+    { "code": "75", "name": "Gorontalo",               "sortOrder": 75 },
+    { "code": "76", "name": "Sulawesi Barat",          "sortOrder": 76 },
+    { "code": "81", "name": "Maluku",                  "sortOrder": 81 },
+    { "code": "82", "name": "Maluku Utara",            "sortOrder": 82 },
+    { "code": "91", "name": "Papua Barat",             "sortOrder": 91 },
+    { "code": "94", "name": "Papua",                   "sortOrder": 94 }
+  ],
+  "kota": [
+    { "code": "3171", "name": "Jakarta Selatan",  "parentCode": "31" },
+    { "code": "3172", "name": "Jakarta Timur",    "parentCode": "31" },
+    { "code": "3173", "name": "Jakarta Pusat",    "parentCode": "31" },
+    { "code": "3174", "name": "Jakarta Barat",    "parentCode": "31" },
+    { "code": "3175", "name": "Jakarta Utara",    "parentCode": "31" },
+    { "code": "3273", "name": "Bandung",          "parentCode": "32" },
+    { "code": "3276", "name": "Depok",            "parentCode": "32" },
+    { "code": "3275", "name": "Bekasi",           "parentCode": "32" },
+    { "code": "3271", "name": "Bogor",            "parentCode": "32" },
+    { "code": "3374", "name": "Semarang",         "parentCode": "33" },
+    { "code": "3372", "name": "Surakarta",        "parentCode": "33" },
+    { "code": "3471", "name": "Yogyakarta",       "parentCode": "34" },
+    { "code": "3578", "name": "Surabaya",         "parentCode": "35" },
+    { "code": "3573", "name": "Malang",           "parentCode": "35" },
+    { "code": "3577", "name": "Sidoarjo",         "parentCode": "35" },
+    { "code": "3671", "name": "Tangerang",        "parentCode": "36" },
+    { "code": "3674", "name": "Tangerang Selatan","parentCode": "36" },
+    { "code": "3672", "name": "Cilegon",          "parentCode": "36" },
+    { "code": "5171", "name": "Denpasar",         "parentCode": "51" },
+    { "code": "1275", "name": "Medan",            "parentCode": "12" },
+    { "code": "1671", "name": "Palembang",        "parentCode": "16" },
+    { "code": "6371", "name": "Banjarmasin",      "parentCode": "63" },
+    { "code": "6472", "name": "Balikpapan",       "parentCode": "64" },
+    { "code": "7371", "name": "Makassar",         "parentCode": "73" }
+  ]
+}

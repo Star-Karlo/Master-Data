@@ -1,0 +1,471 @@
+basePath: /api/v1
+definitions:
+  github_com_karlo_masterdata-service_internal_models.CatalogItem:
+    properties:
+      active:
+        type: boolean
+      attributes:
+        additionalProperties: true
+        type: object
+      code:
+        description: |-
+          Code is the stable business identifier, unique within a kind. Orders
+          reference catalogue entries by id, but imports and integrations match on
+          code, so it must not change.
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogKind'
+      name:
+        type: string
+      parentId:
+        description: |-
+          ParentID links hierarchical catalogues: a city to its province, a
+          district to its city.
+        type: string
+      sortOrder:
+        description: |-
+          SortOrder controls presentation where the list is not alphabetical, such
+          as truck sizes.
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_models.CatalogKind:
+    enum:
+    - brand
+    - cargoType
+    - cargoTruckCapacity
+    - currency
+    - district
+    - item
+    - itemCharacter
+    - itemType
+    - kota
+    - paymentType
+    - pricingType
+    - provinsi
+    - rateCard
+    - requirement
+    - route
+    - truckBody
+    - truckHead
+    - truckType
+    - faq
+    - jobVacancy
+    type: string
+    x-enum-varnames:
+    - KindBrand
+    - KindCargoType
+    - KindCargoTruckCapacity
+    - KindCurrency
+    - KindDistrict
+    - KindItem
+    - KindItemCharacter
+    - KindItemType
+    - KindKota
+    - KindPaymentType
+    - KindPricingType
+    - KindProvinsi
+    - KindRateCard
+    - KindRequirement
+    - KindRoute
+    - KindTruckBody
+    - KindTruckHead
+    - KindTruckType
+    - KindFaq
+    - KindJobVacancy
+  github_com_karlo_masterdata-service_internal_models.GeoPoint:
+    properties:
+      coordinates:
+        description: |-
+          Coordinates are [longitude, latitude], which is GeoJSON order and the
+          reverse of how people usually say it.
+        items:
+          type: number
+        type: array
+      type:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_models.Truck:
+    properties:
+      brandId:
+        type: string
+      chassisNumber:
+        type: string
+      companyId:
+        description: |-
+          CompanyID is the tenant key. Every query in this service filters on it;
+          a query that does not is a data leak between companies.
+        type: string
+      createdAt:
+        type: string
+      deleted:
+        type: boolean
+      documents:
+        additionalProperties: true
+        description: Documents holds STNK, KIR and insurance records with their expiry
+          dates.
+        type: object
+      driverIds:
+        description: |-
+          DriverIDs are authentication-service user ids, held as strings because
+          they are UUIDs in another database, not ObjectIds here.
+        items:
+          type: string
+        type: array
+      engineNumber:
+        type: string
+      id:
+        type: string
+      isAvailable:
+        type: boolean
+      policeNumber:
+        type: string
+      status:
+        type: string
+      truckBodyId:
+        type: string
+      truckGroupId:
+        type: string
+      truckHeadId:
+        type: string
+      truckTypeId:
+        description: These reference CatalogItem ids.
+        type: string
+      updatedAt:
+        type: string
+      year:
+        type: integer
+    type: object
+  github_com_karlo_masterdata-service_internal_models.Warehouse:
+    properties:
+      address:
+        type: string
+      cityId:
+        type: string
+      code:
+        type: string
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      deleted:
+        type: boolean
+      geofenceRadius:
+        description: |-
+          GeofenceRadius is in metres. The business service compares a driver's
+          reported position against it when a company enables geofenced completion.
+        type: integer
+      id:
+        type: string
+      location:
+        $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.GeoPoint'
+      name:
+        type: string
+      operatingHours:
+        additionalProperties: true
+        description: OperatingHours records opening times per weekday.
+        type: object
+      picName:
+        type: string
+      picPhone:
+        type: string
+      postalCode:
+        type: string
+      provinceId:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_platform_response.Meta:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      totalPages:
+        type: integer
+      totalRows:
+        type: integer
+    type: object
+host: localhost:5002
+info:
+  contact:
+    email: engineering@karlo.co.id
+    name: Karlo Engineering
+  description: Reference data. Global catalogues (truck types, cargo types, cities)
+    shared by every company, and per-company registers (trucks, warehouses, customers).
+  termsOfService: https://karlo.co.id/terms
+  title: Karlo Master Data API
+  version: "1.0"
+paths:
+  /catalog:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: List catalogue kinds
+      tags:
+      - Catalog
+  /catalog/{kind}:
+    get:
+      parameters:
+      - description: Catalogue kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta'
+      security:
+      - BearerAuth: []
+      summary: List catalogue entries
+      tags:
+      - Catalog
+    put:
+      parameters:
+      - description: Catalogue kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogItem'
+      security:
+      - BearerAuth: []
+      summary: Create or update a catalogue entry
+      tags:
+      - Catalog
+  /catalog/{kind}/{id}:
+    get:
+      parameters:
+      - description: Catalogue kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogItem'
+      security:
+      - BearerAuth: []
+      summary: Get catalogue entry
+      tags:
+      - Catalog
+  /trucks:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta'
+      security:
+      - BearerAuth: []
+      summary: List trucks
+      tags:
+      - Trucks
+    post:
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Truck'
+      security:
+      - BearerAuth: []
+      summary: Create truck
+      tags:
+      - Trucks
+  /trucks/{id}:
+    delete:
+      parameters:
+      - description: Truck ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete truck
+      tags:
+      - Trucks
+    get:
+      parameters:
+      - description: Truck ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Truck'
+      security:
+      - BearerAuth: []
+      summary: Get truck
+      tags:
+      - Trucks
+    put:
+      parameters:
+      - description: Truck ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update truck
+      tags:
+      - Trucks
+  /trucks/{id}/drivers:
+    delete:
+      parameters:
+      - description: Truck ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unpair driver from truck
+      tags:
+      - Trucks
+    post:
+      parameters:
+      - description: Truck ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Pair driver with truck
+      tags:
+      - Trucks
+  /warehouses:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta'
+      security:
+      - BearerAuth: []
+      summary: List warehouses
+      tags:
+      - Warehouses
+    post:
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Warehouse'
+      security:
+      - BearerAuth: []
+      summary: Create warehouse
+      tags:
+      - Warehouses
+  /warehouses/{id}:
+    delete:
+      parameters:
+      - description: Warehouse ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete warehouse
+      tags:
+      - Warehouses
+    get:
+      parameters:
+      - description: Warehouse ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Warehouse'
+      security:
+      - BearerAuth: []
+      summary: Get warehouse
+      tags:
+      - Warehouses
+    put:
+      parameters:
+      - description: Warehouse ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update warehouse
+      tags:
+      - Warehouses
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: RS256 access token issued by the authentication service, as "Bearer
+      <token>".
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
