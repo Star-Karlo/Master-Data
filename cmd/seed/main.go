@@ -139,6 +139,9 @@ func run(file string, confirm bool) error {
 	for _, kind := range order {
 		for _, entry := range data[kind] {
 			item := &models.CatalogItem{
+				// The seed loads platform-global reference data only. Company
+				// catalogues are created by companies, through the API.
+				CompanyID:   models.GlobalCompanyID,
 				Kind:        models.CatalogKind(kind),
 				Code:        entry.Code,
 				Name:        entry.Name,
@@ -168,7 +171,7 @@ func run(file string, confirm bool) error {
 			// Upsert fills ID only on insert. On a repeat run the row already
 			// exists, so read it back to resolve children.
 			if item.ID.IsZero() {
-				existing, ferr := repo.FindByCode(ctx, models.CatalogKind(kind), entry.Code)
+				existing, ferr := repo.FindByCode(ctx, models.GlobalCompanyID, models.CatalogKind(kind), entry.Code)
 				if ferr != nil {
 					return fmt.Errorf("resolve %s/%s after upsert: %w", kind, entry.Code, ferr)
 				}

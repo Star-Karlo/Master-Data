@@ -88,7 +88,9 @@ func (s *FleetService) validateTruckRefs(ctx context.Context, truck *models.Truc
 		return nil
 	}
 
-	invalid, err := s.catalog.Validate(ctx, refs)
+	// Validated as the truck's own company, so a company-private truck type
+	// resolves while another company's remains invisible.
+	invalid, err := s.catalog.Validate(ctx, truck.CompanyID, refs)
 	if err != nil {
 		return err
 	}

@@ -32,6 +32,10 @@ func NewCatalogHandler(catalog *services.CatalogService) *CatalogHandler {
 // @Success  200 {object} response.Meta
 // @Router   /catalog/{kind} [get]
 func (h *CatalogHandler) List(c *gin.Context) {
+	// From the token, never from a parameter. This is what makes one company's
+	// private catalogue entries invisible to another.
+	companyID := callerCompanyOrGlobal(c)
+
 	kind := c.Param("kind")
 
 	var parentID *primitive.ObjectID
@@ -46,7 +50,7 @@ func (h *CatalogHandler) List(c *gin.Context) {
 
 	params := parseQuery(c, repository.CatalogFields())
 
-	items, total, err := h.catalog.List(c.Request.Context(), kind, parentID, params)
+	items, total, err := h.catalog.List(c.Request.Context(), companyID, kind, parentID, params)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -70,7 +74,7 @@ func (h *CatalogHandler) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := h.catalog.Get(c.Request.Context(), c.Param("kind"), id)
+	item, err := h.catalog.Get(c.Request.Context(), callerCompanyOrGlobal(c), c.Param("kind"), id)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -99,6 +103,25 @@ func (h *CatalogHandler) Upsert(c *gin.Context) {
 	if item.Code == "" {
 		response.BadRequest(c, "code is required")
 		return
+	}
+
+	// Who owns the entry is decided here, from the token, and never from the
+	// body. Platform staff write platform-global entries; a company writes its
+	// own. Trusting a companyId in the request would let any caller write into
+	// another company's catalogue, or promote their own entry to global.
+	principal, ok := authctx.Gin(c)
+	if !ok {
+		response.Unauthorized(c, "No token provided.")
+		return
+	}
+	if principal.IsPlatformStaff {
+		item.CompanyID = models.GlobalCompanyID
+	} else {
+		if principal.CompanyID == "" {
+			response.Forbidden(c, "This account is not attached to a company")
+			return
+		}
+		item.CompanyID = principal.CompanyID
 	}
 
 	if err := h.catalog.Upsert(c.Request.Context(), &item); err != nil {
@@ -515,6 +538,19 @@ func (h *FleetHandler) DeleteWarehouse(c *gin.Context) {
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+// callerCompanyOrGlobal returns the caller's company, or empty for platform
+// staff, who see the global catalogues rather than any one tenant's.
+func callerCompanyOrGlobal(c *gin.Context) string {
+	principal, ok := authctx.Gin(c)
+	if !ok {
+		return ""
+	}
+	if principal.IsPlatformStaff {
+		return ""
+	}
+	return principal.CompanyID
+}
 
 // callerCompany returns the tenant from the token. Every company-scoped handler
 // starts here, and none of them accept a company id from the request.

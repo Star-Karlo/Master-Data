@@ -47,22 +47,36 @@ func (a *Auth) ValidateToken(ctx context.Context, token string) (authctx.Princip
 		return authctx.Principal{}, fmt.Errorf("clients: %s", resp.GetReason())
 	}
 
-	user := resp.GetUser()
-	principal := authctx.Principal{
-		UserID:    user.GetId(),
-		Role:      user.GetRole(),
-		CompanyID: user.GetCompanyId(),
-		ParentID:  user.GetParentId(),
+	return principalFrom(resp.GetUser()), nil
+}
+
+// principalFrom maps the authentication service's user into a principal.
+//
+// The per-product access map is copied wholesale rather than flattened: this
+// service resolves its own product through authctx, and flattening here would
+// discard the other product's access from a token that legitimately carries
+// both.
+func principalFrom(user *authv1.User) authctx.Principal {
+	p := authctx.Principal{
+		UserID:          user.GetId(),
+		CompanyID:       user.GetCompanyId(),
+		ParentID:        user.GetParentId(),
+		IsPlatformStaff: user.GetIsPlatformStaff(),
+		FMSTenantID:     user.GetFmsTenantId(),
 	}
 
-	if perm := user.GetPermission(); len(perm) > 0 {
-		principal.Permission = make(map[string]map[string]bool, len(perm))
-		for module, actions := range perm {
-			principal.Permission[module] = actions.GetActions()
+	if access := user.GetAccess(); len(access) > 0 {
+		p.Access = make(map[authctx.Product]authctx.ProductAccess, len(access))
+		for product, a := range access {
+			p.Access[authctx.Product(product)] = authctx.ProductAccess{
+				Role:        a.GetRole(),
+				Permissions: a.GetPermissions(),
+				Features:    a.GetFeatures(),
+			}
 		}
 	}
 
-	return principal, nil
+	return p
 }
 
 // GetUser resolves one user, for handlers that need to display a driver's name

@@ -51,11 +51,28 @@ var catalogFields = query.FieldSet{
 // CatalogFields is the allowlist for filtering and sorting catalogues.
 func CatalogFields() query.FieldSet { return catalogFields }
 
-func (r *CatalogRepository) FindByID(ctx context.Context, kind models.CatalogKind, id primitive.ObjectID) (*models.CatalogItem, error) {
+// visibleTo builds the company scoping clause for a catalogue read.
+//
+// A company sees the platform-global entries plus its own, and nothing
+// belonging to anyone else. Passing an empty companyId yields globals only,
+// which is what an unauthenticated or platform-level read should see.
+func visibleTo(companyID string) bson.M {
+	if companyID == "" {
+		return bson.M{"companyId": models.GlobalCompanyID}
+	}
+	return bson.M{"companyId": bson.M{"$in": []string{models.GlobalCompanyID, companyID}}}
+}
+
+func (r *CatalogRepository) FindByID(ctx context.Context, companyID string, kind models.CatalogKind, id primitive.ObjectID) (*models.CatalogItem, error) {
 	var item models.CatalogItem
-	// The kind is part of the filter, not just the id: an id from one catalogue
-	// must not resolve when asked for under another.
-	err := r.col.FindOne(ctx, bson.M{"_id": id, "kind": kind}).Decode(&item)
+	// Three conditions, all load-bearing. The id alone is not enough: the kind
+	// stops an id from one catalogue resolving under another, and the company
+	// scope stops one company reading another's private entry.
+	filter := bson.M{"_id": id, "kind": kind}
+	for k, v := range visibleTo(companyID) {
+		filter[k] = v
+	}
+	err := r.col.FindOne(ctx, filter).Decode(&item)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -67,7 +84,7 @@ func (r *CatalogRepository) FindByID(ctx context.Context, kind models.CatalogKin
 
 // FindManyByRefs resolves a heterogeneous batch of catalogue references in one
 // round trip, using an $or over (kind, id) pairs.
-func (r *CatalogRepository) FindManyByRefs(ctx context.Context, refs []CatalogRef) ([]models.CatalogItem, error) {
+func (r *CatalogRepository) FindManyByRefs(ctx context.Context, companyID string, refs []CatalogRef) ([]models.CatalogItem, error) {
 	if len(refs) == 0 {
 		return nil, nil
 	}
@@ -77,7 +94,12 @@ func (r *CatalogRepository) FindManyByRefs(ctx context.Context, refs []CatalogRe
 		clauses = append(clauses, bson.M{"_id": ref.ID, "kind": ref.Kind})
 	}
 
-	cur, err := r.col.Find(ctx, bson.M{"$or": clauses})
+	filter := bson.M{"$or": clauses}
+	for k, v := range visibleTo(companyID) {
+		filter[k] = v
+	}
+
+	cur, err := r.col.Find(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("repository: resolve catalog refs: %w", err)
 	}
@@ -100,8 +122,11 @@ type CatalogRef struct {
 }
 
 // List pages one catalogue.
-func (r *CatalogRepository) List(ctx context.Context, kind models.CatalogKind, parentID *primitive.ObjectID, p query.Params) ([]models.CatalogItem, int64, error) {
+func (r *CatalogRepository) List(ctx context.Context, companyID string, kind models.CatalogKind, parentID *primitive.ObjectID, p query.Params) ([]models.CatalogItem, int64, error) {
 	filter := bson.M{"kind": kind}
+	for k, v := range visibleTo(companyID) {
+		filter[k] = v
+	}
 	if parentID != nil {
 		filter["parentId"] = *parentID
 	}
@@ -147,7 +172,9 @@ func (r *CatalogRepository) Upsert(ctx context.Context, item *models.CatalogItem
 	item.UpdatedAt = now
 
 	res, err := r.col.UpdateOne(ctx,
-		bson.M{"kind": item.Kind, "code": item.Code},
+		// Keyed on the company too, so upserting a company's own "BOX" cannot
+		// overwrite the platform-global one of the same code.
+		bson.M{"companyId": item.CompanyID, "kind": item.Kind, "code": item.Code},
 		bson.M{
 			"$set": bson.M{
 				"name":        item.Name,
@@ -175,8 +202,8 @@ func (r *CatalogRepository) Upsert(ctx context.Context, item *models.CatalogItem
 
 // ExistingIDs returns which of the given refs actually exist, so a caller can
 // validate a set of references without fetching their contents.
-func (r *CatalogRepository) ExistingIDs(ctx context.Context, refs []CatalogRef) (map[string]bool, error) {
-	items, err := r.FindManyByRefs(ctx, refs)
+func (r *CatalogRepository) ExistingIDs(ctx context.Context, companyID string, refs []CatalogRef) (map[string]bool, error) {
+	items, err := r.FindManyByRefs(ctx, companyID, refs)
 	if err != nil {
 		return nil, err
 	}
@@ -558,9 +585,9 @@ func (r *WarehouseRepository) SoftDelete(ctx context.Context, companyID string, 
 // FindByCode resolves a catalogue entry by its business code. The seed loader
 // uses it to recover the id of an entry that already existed, so that child
 // entries can be linked on a repeat run.
-func (r *CatalogRepository) FindByCode(ctx context.Context, kind models.CatalogKind, code string) (*models.CatalogItem, error) {
+func (r *CatalogRepository) FindByCode(ctx context.Context, companyID string, kind models.CatalogKind, code string) (*models.CatalogItem, error) {
 	var item models.CatalogItem
-	err := r.col.FindOne(ctx, bson.M{"kind": kind, "code": code}).Decode(&item)
+	err := r.col.FindOne(ctx, bson.M{"companyId": companyID, "kind": kind, "code": code}).Decode(&item)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound

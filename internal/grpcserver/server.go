@@ -40,7 +40,7 @@ func (s *Server) GetCatalogItem(ctx context.Context, req *masterdatav1.GetCatalo
 		return nil, status.Error(codes.InvalidArgument, "malformed item id")
 	}
 
-	item, err := s.catalog.Get(ctx, string(kind), id)
+	item, err := s.catalog.Get(ctx, req.GetCompanyId(), string(kind), id)
 	if err != nil {
 		return nil, mapError(err, "catalogue entry")
 	}
@@ -65,7 +65,7 @@ func (s *Server) ListCatalogItems(ctx context.Context, req *masterdatav1.ListCat
 
 	params := query.FromProto(req.GetQuery(), repository.CatalogFields())
 
-	items, total, err := s.catalog.List(ctx, string(kind), parentID, params)
+	items, total, err := s.catalog.List(ctx, req.GetCompanyId(), string(kind), parentID, params)
 	if err != nil {
 		return nil, mapError(err, "catalogue")
 	}
@@ -90,7 +90,7 @@ func (s *Server) ResolveCatalogItems(ctx context.Context, req *masterdatav1.Reso
 		return &masterdatav1.ResolveCatalogItemsResponse{}, nil
 	}
 
-	items, err := s.catalog.Resolve(ctx, refs)
+	items, err := s.catalog.Resolve(ctx, req.GetCompanyId(), refs)
 	if err != nil {
 		return nil, mapError(err, "catalogue")
 	}
@@ -126,7 +126,7 @@ func (s *Server) ValidateReferences(ctx context.Context, req *masterdatav1.Valid
 		refs = append(refs, repository.CatalogRef{Kind: kind, ID: id})
 	}
 
-	invalid, err := s.catalog.Validate(ctx, refs)
+	invalid, err := s.catalog.Validate(ctx, req.GetCompanyId(), refs)
 	if err != nil {
 		return nil, mapError(err, "catalogue")
 	}
@@ -313,6 +313,7 @@ func toProtoCatalogItem(item *models.CatalogItem) *masterdatav1.CatalogItem {
 	return &masterdatav1.CatalogItem{
 		Id:          item.ID.Hex(),
 		Kind:        kindToProto(item.Kind),
+		CompanyId:   item.CompanyID,
 		Code:        item.Code,
 		Name:        item.Name,
 		Description: item.Description,

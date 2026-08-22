@@ -16,6 +16,7 @@ import (
 	"github.com/karlo/masterdata-service/internal/grpcserver"
 	"github.com/karlo/masterdata-service/internal/handlers"
 	"github.com/karlo/masterdata-service/internal/platform/authctx"
+	"github.com/karlo/masterdata-service/internal/platform/cache"
 	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
 	"github.com/karlo/masterdata-service/internal/platform/grpcutil"
 	"github.com/karlo/masterdata-service/internal/platform/logger"
@@ -56,6 +57,10 @@ func run() error {
 	// Logs go to stdout as JSON, and additionally to Fluentd when
 	// FLUENTD_HOST is set. An unreachable collector degrades to
 	// stdout-only rather than stopping the service.
+	// This service belongs to TMS; authctx resolves HasModule, Role and
+	// HasRole against it.
+	authctx.SetProduct(authctx.ProductTMS)
+
 	logger.InitFromEnv("masterdata")
 	defer logger.Close()
 
@@ -92,11 +97,20 @@ func run() error {
 		}
 	}()
 
+	// A cache is optional. Without REDIS_ADDR this is a no-op implementation and
+	// the service runs correctly, just against MongoDB every time.
+	cacheClient := cache.FromEnv("masterdata")
+	defer func() {
+		if err := cacheClient.Close(); err != nil {
+			slog.Error("cache close failed", "error", err)
+		}
+	}()
+
 	catalogRepo := repository.NewCatalogRepository(db)
 	truckRepo := repository.NewTruckRepository(db)
 	warehouseRepo := repository.NewWarehouseRepository(db)
 
-	catalogService := services.NewCatalogService(catalogRepo, cfg.CatalogCacheTTL)
+	catalogService := services.NewCatalogService(catalogRepo, cacheClient, cfg.CatalogCacheTTL)
 	fleetService := services.NewFleetService(truckRepo, warehouseRepo, catalogService)
 
 	grpcSrv := grpcutil.NewServer(grpcutil.ServerConfig{

@@ -1,0 +1,34 @@
+# Master data service, production.
+
+environment          = "prod"
+cors_allowed_origins = ["https://app.karlo.co.id"]
+fluentd_host         = "fluentd.karlo.internal"
+
+# Read-heavy but cached, so it needs less than its request volume suggests.
+task_cpu      = 256
+task_memory   = 512
+desired_count = 2
+min_capacity  = 2
+max_capacity  = 4
+
+extra_environment = [
+  # Must be a NEW, EMPTY database. The service refuses to start against the
+  # legacy monolith cluster or a database named prod/test/local; see
+  # internal/config/guard.go.
+  { name = "MONGO_DATABASE", value = "karlo_masterdata" },
+  { name = "CATALOG_CACHE_TTL", value = "15m" },
+]
+
+secrets = [
+  { name = "MONGO_URI", valueFrom = "SECRET_DOCDB:uri::" },
+  { name = "JWT_PUBLIC_KEY", valueFrom = "SECRET_JWT_PUBLIC" },
+  { name = "SERVICE_TOKEN", valueFrom = "SECRET_TOKENS:masterdata-service::" },
+  { name = "ACCEPTED_SERVICE_TOKENS", valueFrom = "SECRET_TOKENS:all::" },
+]
+
+# Note the absence of the private key: only the authentication service holds it.
+secret_arns = ["SECRET_DOCDB", "SECRET_JWT_PUBLIC", "SECRET_TOKENS"]
+
+# The SECRET_* placeholders are Secrets Manager ARNs from platform-terraform's
+# `secret_arns` output. Copy this file to prod.tfvars and substitute them; the
+# copy is gitignored because the ARNs name where production credentials live.

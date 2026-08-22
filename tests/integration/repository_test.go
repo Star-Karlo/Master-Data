@@ -99,7 +99,7 @@ func TestCatalogUpsertIsIdempotent(t *testing.T) {
 		t.Fatalf("second upsert failed: %v", err)
 	}
 
-	found, err := repo.FindByCode(ctx(), models.KindTruckType, "CDD")
+	found, err := repo.FindByCode(ctx(), models.GlobalCompanyID, models.KindTruckType, "CDD")
 	if err != nil {
 		t.Fatalf("could not resolve by code: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestCatalogUpsertIsIdempotent(t *testing.T) {
 		t.Errorf("the update did not take: name = %q", found.Name)
 	}
 
-	_, total, err := repo.List(ctx(), models.KindTruckType, nil, query.Params{PageSize: 50})
+	_, total, err := repo.List(ctx(), models.GlobalCompanyID, models.KindTruckType, nil, query.Params{PageSize: 50})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -142,11 +142,11 @@ func TestCatalogLookupIsScopedToItsKind(t *testing.T) {
 		t.Fatalf("upsert failed: %v", err)
 	}
 
-	if _, err := repo.FindByID(ctx(), models.KindTruckType, item.ID); err != nil {
+	if _, err := repo.FindByID(ctx(), models.GlobalCompanyID, models.KindTruckType, item.ID); err != nil {
 		t.Fatalf("the correct kind did not resolve: %v", err)
 	}
 
-	if _, err := repo.FindByID(ctx(), models.KindRateCard, item.ID); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := repo.FindByID(ctx(), models.GlobalCompanyID, models.KindRateCard, item.ID); !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("an id resolved under the wrong kind: %v", err)
 	}
 }

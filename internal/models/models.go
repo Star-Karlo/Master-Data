@@ -70,6 +70,21 @@ type CatalogItem struct {
 	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Kind CatalogKind        `bson:"kind" json:"kind"`
 
+	// CompanyID scopes an entry to one company.
+	//
+	// Empty means a PLATFORM-GLOBAL entry, shared by every company and editable
+	// only by Karlo staff — truck types, provinces, currencies. A value means a
+	// COMPANY-PRIVATE entry, visible and editable only by that company: their
+	// own item types, their own body types, their own naming.
+	//
+	// It is deliberately not `omitempty`. A global entry stores an empty string
+	// rather than omitting the field, so the unique index sees one consistent
+	// value instead of distinguishing "missing" from "null" from "empty".
+	//
+	// The value comes from the caller's token, never from a request body. That
+	// is what stops one company's catalogue from mixing with another's.
+	CompanyID string `bson:"companyId" json:"companyId"`
+
 	// Code is the stable business identifier, unique within a kind. Orders
 	// reference catalogue entries by id, but imports and integrations match on
 	// code, so it must not change.
@@ -92,8 +107,41 @@ type CatalogItem struct {
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
-// CollectionName is the single collection holding every global catalogue.
+// CollectionName is the single collection holding every catalogue.
 func (CatalogItem) CollectionName() string { return config.Collection("catalog_items") }
+
+// IsGlobal reports whether this entry is shared by every company.
+func (c *CatalogItem) IsGlobal() bool { return c.CompanyID == "" }
+
+// GlobalCompanyID is the CompanyID value stored on a platform-global entry.
+const GlobalCompanyID = ""
+
+// CompanyScopedKinds are the catalogues a company may extend with its own
+// entries.
+//
+// The rest are platform-wide reference data where a per-company variant would
+// be meaningless or actively wrong: a company does not get its own list of
+// Indonesian provinces, and letting one define its own currency codes would
+// break every integration that reads them.
+//
+// This list is expected to grow. Adding a kind here is the only change needed
+// to let companies extend it.
+var CompanyScopedKinds = map[CatalogKind]bool{
+	KindItem:          true,
+	KindItemType:      true,
+	KindItemCharacter: true,
+	KindTruckBody:     true,
+	KindTruckHead:     true,
+	KindTruckType:     true,
+	KindCargoType:     true,
+	KindRequirement:   true,
+	KindRateCard:      true,
+	KindRoute:         true,
+}
+
+// AllowsCompanyEntries reports whether a company may add its own entries to a
+// catalogue.
+func AllowsCompanyEntries(kind CatalogKind) bool { return CompanyScopedKinds[kind] }
 
 // Truck is a company's vehicle.
 type Truck struct {

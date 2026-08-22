@@ -77,8 +77,15 @@ func EnsureIndexes(ctx context.Context, db *mongo.Database) error {
 
 	specs := []indexSpec{
 		// Catalogue lookups are always by kind, and usually by kind plus code.
-		{Collection("catalog_items"), unique(bson.D{{Key: "kind", Value: 1}, {Key: "code", Value: 1}})},
-		{Collection("catalog_items"), plain(bson.D{{Key: "kind", Value: 1}, {Key: "active", Value: 1}, {Key: "name", Value: 1}})},
+		// Uniqueness is per company, not global. Two companies may each define
+		// an item type coded "BOX"; one company may not define it twice.
+		// Platform-global entries store an empty companyId, so there can be
+		// exactly one global "BOX" alongside any number of company ones.
+		{Collection("catalog_items"), unique(bson.D{{Key: "companyId", Value: 1}, {Key: "kind", Value: 1}, {Key: "code", Value: 1}})},
+		// The listing query: one kind, visible to one company (its own entries
+		// plus the globals). companyId leads because it is the most selective
+		// and because every read filters on it.
+		{Collection("catalog_items"), plain(bson.D{{Key: "companyId", Value: 1}, {Key: "kind", Value: 1}, {Key: "active", Value: 1}, {Key: "name", Value: 1}})},
 		{Collection("catalog_items"), plain(bson.D{{Key: "kind", Value: 1}, {Key: "parentId", Value: 1}})},
 
 		// Company catalogues are always scoped to one company.
