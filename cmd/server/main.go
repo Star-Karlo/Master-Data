@@ -23,6 +23,18 @@ import (
 	"github.com/karlo/masterdata-service/internal/services"
 )
 
+// @title           Karlo Master Data API
+// @version         1.0
+// @description     Reference data. Global catalogues (brands, truck types, cargo types, items, tracker models) shared by every company, and per-company registers (customers, vehicle groups, trucks, warehouses).\n\nEvery endpoint needs a bearer token from the authentication service. Karlo staff may act for a client by sending X-Acting-For: <companyId>.
+// @contact.name    Karlo Engineering
+// @contact.email   engineering@karlo.co.id
+// @host            localhost:5002
+// @BasePath        /api/v1
+// @schemes         http https
+// @securityDefinitions.apikey BearerAuth
+// @in                         header
+// @name                       Authorization
+// @description                RS256 access token issued by the authentication service, as "Bearer <token>".
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "error", err)

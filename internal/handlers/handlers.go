@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/karlo/masterdata-service/internal/models"
 	"github.com/karlo/masterdata-service/internal/platform/authctx"
 	"github.com/karlo/masterdata-service/internal/platform/query"
 	"github.com/karlo/masterdata-service/internal/platform/response"
@@ -141,6 +142,12 @@ type kindInfo struct {
 }
 
 // Kinds lists the catalogues this service serves.
+// @Summary  Catalogue kinds
+// @Tags     catalog
+// @Security BearerAuth
+// @Produce  json
+// @Success  200 {array} kindInfo
+// @Router   /catalog [get]
 func (h *CatalogHandler) Kinds(c *gin.Context) {
 	names := services.CatalogKinds()
 	out := make([]kindInfo, 0, len(names))
@@ -174,6 +181,18 @@ func staff(c *gin.Context) bool {
 }
 
 // Create adds an entry.
+// @Summary  Add a catalogue entry
+// @Description Karlo staff create shared entries; a company creates its own. Fields depend on the kind — see the models for each catalogue (Brand, CargoType, Item, TruckHead, TruckBody, TruckClass, Customer, VehicleGroup, TrackerModel…).
+// @Tags     catalog
+// @Security BearerAuth
+// @Accept   json
+// @Produce  json
+// @Param    kind path string true "Catalogue kind, from GET /catalog"
+// @Param    body body object true "Entry fields for the kind"
+// @Success  201 {object} map[string]interface{}
+// @Failure  400 {object} errorBody
+// @Failure  403 {object} errorBody
+// @Router   /catalog/{kind} [post]
 func (h *CatalogHandler) Create(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -204,6 +223,17 @@ func (h *CatalogHandler) Create(c *gin.Context) {
 }
 
 // Update changes an entry.
+// @Summary  Edit a catalogue entry
+// @Tags     catalog
+// @Security BearerAuth
+// @Accept   json
+// @Produce  json
+// @Param    kind path string true "Catalogue kind"
+// @Param    id   path string true "Entry id"
+// @Param    body body object true "Changed fields"
+// @Success  200 {object} map[string]interface{}
+// @Failure  404 {object} errorBody
+// @Router   /catalog/{kind}/{id} [put]
 func (h *CatalogHandler) Update(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -231,6 +261,16 @@ func (h *CatalogHandler) Update(c *gin.Context) {
 }
 
 // Delete retires an entry.
+// @Summary  Retire a catalogue entry
+// @Description Soft: documents already referencing it keep resolving; the name frees up.
+// @Tags     catalog
+// @Security BearerAuth
+// @Produce  json
+// @Param    kind path string true "Catalogue kind"
+// @Param    id   path string true "Entry id"
+// @Success  200 {object} map[string]interface{}
+// @Failure  404 {object} errorBody
+// @Router   /catalog/{kind}/{id} [delete]
 func (h *CatalogHandler) Delete(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -245,6 +285,19 @@ func (h *CatalogHandler) Delete(c *gin.Context) {
 }
 
 // List pages one catalogue.
+// @Summary  List one catalogue
+// @Tags     catalog
+// @Security BearerAuth
+// @Produce  json
+// @Param    kind     path  string true  "Catalogue kind"
+// @Param    parentId query string false "Restrict to children of this entry (e.g. sub-categories of a category)"
+// @Param    page     query int    false "Zero-based page"
+// @Param    pageSize query int    false "Rows per page"
+// @Param    search   query string false "Free-text search"
+// @Param    sorted   query string false "Sort, e.g. name:asc"
+// @Param    filtered query string false "Filters as field:value, comma separated"
+// @Success  200 {object} map[string]interface{} "success, data[], meta{page,limit,totalRows,totalPages}"
+// @Router   /catalog/{kind} [get]
 func (h *CatalogHandler) List(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -265,6 +318,15 @@ func (h *CatalogHandler) List(c *gin.Context) {
 }
 
 // Get resolves one entry.
+// @Summary  Get a catalogue entry
+// @Tags     catalog
+// @Security BearerAuth
+// @Produce  json
+// @Param    kind path string true "Catalogue kind"
+// @Param    id   path string true "Entry id"
+// @Success  200 {object} map[string]interface{}
+// @Failure  404 {object} errorBody
+// @Router   /catalog/{kind}/{id} [get]
 func (h *CatalogHandler) Get(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -303,6 +365,18 @@ var warehouseFields = query.FieldSet{
 }
 
 // ListTrucks pages the company's assignable vehicles.
+// @Summary  List the company's trucks
+// @Tags     fleet
+// @Security BearerAuth
+// @Produce  json
+// @Param    isAvailable query bool false "Only trucks free for assignment"
+// @Param    page     query int    false "Zero-based page"
+// @Param    pageSize query int    false "Rows per page"
+// @Param    search   query string false "Free-text search"
+// @Param    sorted   query string false "Sort, e.g. name:asc"
+// @Param    filtered query string false "Filters as field:value, comma separated"
+// @Success  200 {object} map[string]interface{} "success, data []models.Vehicle, meta"
+// @Router   /trucks [get]
 func (h *FleetHandler) ListTrucks(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -322,6 +396,14 @@ func (h *FleetHandler) ListTrucks(c *gin.Context) {
 	response.Paginated(c, trucks, meta(p, total))
 }
 
+// @Summary  Get a truck
+// @Tags     fleet
+// @Security BearerAuth
+// @Produce  json
+// @Param    id path string true "Truck id"
+// @Success  200 {object} models.Vehicle
+// @Failure  404 {object} errorBody
+// @Router   /trucks/{id} [get]
 func (h *FleetHandler) GetTruck(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -336,6 +418,17 @@ func (h *FleetHandler) GetTruck(c *gin.Context) {
 	response.OK(c, truck)
 }
 
+// @Summary  List the company's sites
+// @Tags     warehouses
+// @Security BearerAuth
+// @Produce  json
+// @Param    page     query int    false "Zero-based page"
+// @Param    pageSize query int    false "Rows per page"
+// @Param    search   query string false "Free-text search"
+// @Param    sorted   query string false "Sort, e.g. name:asc"
+// @Param    filtered query string false "Filters as field:value, comma separated"
+// @Success  200 {object} map[string]interface{} "success, data []models.Site, meta"
+// @Router   /warehouses [get]
 func (h *FleetHandler) ListWarehouses(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -390,6 +483,15 @@ func (r warehouseRequest) toInput() services.SiteInput {
 }
 
 // CreateWarehouse records a loading or unloading point.
+// @Summary  Add a site
+// @Tags     warehouses
+// @Security BearerAuth
+// @Accept   json
+// @Produce  json
+// @Param    body body warehouseRequest true "Site"
+// @Success  201 {object} models.Site
+// @Failure  400 {object} errorBody
+// @Router   /warehouses [post]
 func (h *FleetHandler) CreateWarehouse(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -411,6 +513,16 @@ func (h *FleetHandler) CreateWarehouse(c *gin.Context) {
 }
 
 // UpdateWarehouse changes a site the company owns.
+// @Summary  Edit a site
+// @Tags     warehouses
+// @Security BearerAuth
+// @Accept   json
+// @Produce  json
+// @Param    id   path string true "Site id"
+// @Param    body body warehouseRequest true "Site"
+// @Success  200 {object} models.Site
+// @Failure  404 {object} errorBody
+// @Router   /warehouses/{id} [put]
 func (h *FleetHandler) UpdateWarehouse(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -432,6 +544,14 @@ func (h *FleetHandler) UpdateWarehouse(c *gin.Context) {
 }
 
 // DeleteWarehouse retires a site.
+// @Summary  Retire a site
+// @Tags     warehouses
+// @Security BearerAuth
+// @Produce  json
+// @Param    id path string true "Site id"
+// @Success  200 {object} map[string]interface{}
+// @Failure  404 {object} errorBody
+// @Router   /warehouses/{id} [delete]
 func (h *FleetHandler) DeleteWarehouse(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -444,6 +564,14 @@ func (h *FleetHandler) DeleteWarehouse(c *gin.Context) {
 	response.OKWithMessage(c, "Site removed.", nil)
 }
 
+// @Summary  Get a site
+// @Tags     warehouses
+// @Security BearerAuth
+// @Produce  json
+// @Param    id path string true "Site id"
+// @Success  200 {object} models.Site
+// @Failure  404 {object} errorBody
+// @Router   /warehouses/{id} [get]
 func (h *FleetHandler) GetWarehouse(c *gin.Context) {
 	companyID, ok := caller(c)
 	if !ok {
@@ -456,4 +584,17 @@ func (h *FleetHandler) GetWarehouse(c *gin.Context) {
 		return
 	}
 	response.OK(c, site)
+}
+
+// Referenced only by the API document; the handlers return whatever the
+// service hands them.
+var (
+	_ models.Vehicle
+	_ models.Site
+)
+
+// errorBody is the failure envelope every endpoint returns, for the API document.
+type errorBody struct {
+	Success bool   `json:"success" example:"false"`
+	Message string `json:"message" example:"Entry not found."`
 }

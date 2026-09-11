@@ -9,7 +9,6 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://karlo.co.id/terms",
         "contact": {
             "name": "Karlo Engineering",
             "email": "engineering@karlo.co.id"
@@ -21,15 +20,26 @@ const docTemplate = `{
     "paths": {
         "/catalog": {
             "get": {
-                "tags": [
-                    "Catalog"
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
                 ],
-                "summary": "List catalogue kinds",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Catalogue kinds",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handlers.kindInfo"
+                            }
                         }
                     }
                 }
@@ -42,10 +52,13 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Catalog"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "List catalogue entries",
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "List one catalogue",
                 "parameters": [
                     {
                         "type": "string",
@@ -53,41 +66,107 @@ const docTemplate = `{
                         "name": "kind",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Restrict to children of this entry (e.g. sub-categories of a category)",
+                        "name": "parentId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Free-text search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort, e.g. name:asc",
+                        "name": "sorted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filters as field:value, comma separated",
+                        "name": "filtered",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "success, data[], meta{page,limit,totalRows,totalPages}",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
             },
-            "put": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Catalog"
+                "description": "Karlo staff create shared entries; a company creates its own. Fields depend on the kind — see the models for each catalogue (Brand, CargoType, Item, TruckHead, TruckBody, TruckClass, Customer, VehicleGroup, TrackerModel…).",
+                "consumes": [
+                    "application/json"
                 ],
-                "summary": "Create or update a catalogue entry",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Add a catalogue entry",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Catalogue kind",
+                        "description": "Catalogue kind, from GET /catalog",
                         "name": "kind",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Entry fields for the kind",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogItem"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -100,10 +179,13 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Catalog"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "Get catalogue entry",
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Get a catalogue entry",
                 "parameters": [
                     {
                         "type": "string",
@@ -114,7 +196,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Entry ID",
+                        "description": "Entry id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -124,7 +206,117 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogItem"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Edit a catalogue entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalogue kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Entry id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Soft: documents already referencing it keep resolving; the name frees up.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Retire a catalogue entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalogue kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Entry id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -137,34 +329,57 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Trucks"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "List trucks",
+                "tags": [
+                    "fleet"
+                ],
+                "summary": "List the company's trucks",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Only trucks free for assignment",
+                        "name": "isAvailable",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Free-text search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort, e.g. name:asc",
+                        "name": "sorted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filters as field:value, comma separated",
+                        "name": "filtered",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "success, data []models.Vehicle, meta",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Create truck",
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Truck"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -177,14 +392,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Trucks"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "Get truck",
+                "tags": [
+                    "fleet"
+                ],
+                "summary": "Get a truck",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Truck ID",
+                        "description": "Truck id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -194,121 +412,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Truck"
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Vehicle"
                         }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Update truck",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Truck ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Delete truck",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Truck ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
-            }
-        },
-        "/trucks/{id}/drivers": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Pair driver with truck",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Truck ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "Trucks"
-                ],
-                "summary": "Unpair driver from truck",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Truck ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -321,15 +431,51 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Warehouses"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "List warehouses",
+                "tags": [
+                    "warehouses"
+                ],
+                "summary": "List the company's sites",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Free-text search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort, e.g. name:asc",
+                        "name": "sorted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filters as field:value, comma separated",
+                        "name": "filtered",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "success, data []models.Site, meta",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_platform_response.Meta"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -340,15 +486,38 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Warehouses"
+                "consumes": [
+                    "application/json"
                 ],
-                "summary": "Create warehouse",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "warehouses"
+                ],
+                "summary": "Add a site",
+                "parameters": [
+                    {
+                        "description": "Site",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.warehouseRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Warehouse"
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Site"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -361,14 +530,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Warehouses"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "Get warehouse",
+                "tags": [
+                    "warehouses"
+                ],
+                "summary": "Get a site",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Warehouse ID",
+                        "description": "Site id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -378,7 +550,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Warehouse"
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Site"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -389,24 +567,45 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Warehouses"
+                "consumes": [
+                    "application/json"
                 ],
-                "summary": "Update warehouse",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "warehouses"
+                ],
+                "summary": "Edit a site",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Warehouse ID",
+                        "description": "Site id",
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Site",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.warehouseRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Site"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -417,14 +616,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "tags": [
-                    "Warehouses"
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "Delete warehouse",
+                "tags": [
+                    "warehouses"
+                ],
+                "summary": "Retire a site",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Warehouse ID",
+                        "description": "Site id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -434,7 +636,14 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
                         }
                     }
                 }
@@ -442,100 +651,11 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_karlo_masterdata-service_internal_models.CatalogItem": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "type": "boolean"
-                },
-                "attributes": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "code": {
-                    "description": "Code is the stable business identifier, unique within a kind. Orders\nreference catalogue entries by id, but imports and integrations match on\ncode, so it must not change.",
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "kind": {
-                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.CatalogKind"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "description": "ParentID links hierarchical catalogues: a city to its province, a\ndistrict to its city.",
-                    "type": "string"
-                },
-                "sortOrder": {
-                    "description": "SortOrder controls presentation where the list is not alphabetical, such\nas truck sizes.",
-                    "type": "integer"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_karlo_masterdata-service_internal_models.CatalogKind": {
-            "type": "string",
-            "enum": [
-                "brand",
-                "cargoType",
-                "cargoTruckCapacity",
-                "currency",
-                "district",
-                "item",
-                "itemCharacter",
-                "itemType",
-                "kota",
-                "paymentType",
-                "pricingType",
-                "provinsi",
-                "rateCard",
-                "requirement",
-                "route",
-                "truckBody",
-                "truckHead",
-                "truckType",
-                "faq",
-                "jobVacancy"
-            ],
-            "x-enum-varnames": [
-                "KindBrand",
-                "KindCargoType",
-                "KindCargoTruckCapacity",
-                "KindCurrency",
-                "KindDistrict",
-                "KindItem",
-                "KindItemCharacter",
-                "KindItemType",
-                "KindKota",
-                "KindPaymentType",
-                "KindPricingType",
-                "KindProvinsi",
-                "KindRateCard",
-                "KindRequirement",
-                "KindRoute",
-                "KindTruckBody",
-                "KindTruckHead",
-                "KindTruckType",
-                "KindFaq",
-                "KindJobVacancy"
-            ]
-        },
         "github_com_karlo_masterdata-service_internal_models.GeoPoint": {
             "type": "object",
             "properties": {
                 "coordinates": {
-                    "description": "Coordinates are [longitude, latitude], which is GeoJSON order and the\nreverse of how people usually say it.",
+                    "description": "Longitude FIRST, then latitude. GeoJSON's order is the reverse of how\ncoordinates are usually spoken, and getting it wrong puts an Indonesian\nsite in the Indian Ocean without any error.",
                     "type": "array",
                     "items": {
                         "type": "number"
@@ -546,83 +666,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_karlo_masterdata-service_internal_models.Truck": {
-            "type": "object",
-            "properties": {
-                "brandId": {
-                    "type": "string"
-                },
-                "chassisNumber": {
-                    "type": "string"
-                },
-                "companyId": {
-                    "description": "CompanyID is the tenant key. Every query in this service filters on it;\na query that does not is a data leak between companies.",
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "deleted": {
-                    "type": "boolean"
-                },
-                "documents": {
-                    "description": "Documents holds STNK, KIR and insurance records with their expiry dates.",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "driverIds": {
-                    "description": "DriverIDs are authentication-service user ids, held as strings because\nthey are UUIDs in another database, not ObjectIds here.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "engineNumber": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "isAvailable": {
-                    "type": "boolean"
-                },
-                "policeNumber": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "truckBodyId": {
-                    "type": "string"
-                },
-                "truckGroupId": {
-                    "type": "string"
-                },
-                "truckHeadId": {
-                    "type": "string"
-                },
-                "truckTypeId": {
-                    "description": "These reference CatalogItem ids.",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_karlo_masterdata-service_internal_models.Warehouse": {
+        "github_com_karlo_masterdata-service_internal_models.Site": {
             "type": "object",
             "properties": {
                 "address": {
+                    "description": "What the geocoder returned, stored so the lookup happens once rather than\non every read — and because a coordinate alone cannot be shown to a\ndriver or printed on a document.\nCity and province are NAMES, not ids into a region table. There is no\nregion table, and an id referencing nothing is worse than the name it\nstands for: it cannot be read, printed or searched without a lookup that\ndoes not exist.",
                     "type": "string"
                 },
-                "cityId": {
-                    "type": "string"
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
                 },
-                "code": {
+                "city": {
                     "type": "string"
                 },
                 "companyId": {
@@ -631,15 +686,18 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
-                "deleted": {
-                    "type": "boolean"
+                "district": {
+                    "type": "string"
                 },
-                "geofenceRadius": {
-                    "description": "GeofenceRadius is in metres. The business service compares a driver's\nreported position against it when a company enables geofenced completion.",
+                "geofenceRadiusM": {
+                    "description": "How close counts as \"arrived\". Per site, because a roadside drop needs a\nwider radius than a fenced yard.",
                     "type": "integer"
                 },
                 "id": {
                     "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
                 },
                 "location": {
                     "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.GeoPoint"
@@ -647,21 +705,29 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "operatingHours": {
-                    "description": "OperatingHours records opening times per weekday.",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "picName": {
+                "notes": {
                     "type": "string"
                 },
-                "picPhone": {
+                "picUserIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "postcode": {
                     "type": "string"
                 },
-                "postalCode": {
+                "province": {
                     "type": "string"
                 },
-                "provinceId": {
+                "sitePicPhone": {
+                    "description": "Who to call at the gate — the person in charge of this site, not the\ncompany switchboard.",
+                    "type": "string"
+                },
+                "siteType": {
+                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.SiteType"
+                },
+                "street": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -669,20 +735,205 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_karlo_masterdata-service_internal_platform_response.Meta": {
+        "github_com_karlo_masterdata-service_internal_models.SiteType": {
+            "type": "string",
+            "enum": [
+                "warehouse",
+                "depot",
+                "port",
+                "customer",
+                "other"
+            ],
+            "x-enum-comments": {
+                "SiteDepot": "where a transporter keeps its fleet",
+                "SitePort": "a sea or dry port",
+                "SiteWarehouse": "a loading or unloading point on an order"
+            },
+            "x-enum-descriptions": [
+                "a loading or unloading point on an order",
+                "where a transporter keeps its fleet",
+                "a sea or dry port",
+                "",
+                ""
+            ],
+            "x-enum-varnames": [
+                "SiteWarehouse",
+                "SiteDepot",
+                "SitePort",
+                "SiteCustomer",
+                "SiteOther"
+            ]
+        },
+        "github_com_karlo_masterdata-service_internal_models.UnitType": {
+            "type": "string",
+            "enum": [
+                "rigid",
+                "head",
+                "body"
+            ],
+            "x-enum-varnames": [
+                "UnitRigid",
+                "UnitHead",
+                "UnitBody"
+            ]
+        },
+        "github_com_karlo_masterdata-service_internal_models.Vehicle": {
             "type": "object",
             "properties": {
-                "limit": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "brandId": {
+                    "type": "string"
+                },
+                "chassisNumber": {
+                    "description": "The numbers that identify the PHYSICAL vehicle rather than its\nregistration. A plate is reissued when a vehicle is sold; these are not,\nwhich is why the chassis number is unique everywhere and the plate only\nwithin a company.",
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currentDriverUserId": {
+                    "type": "string"
+                },
+                "engineNumber": {
+                    "type": "string"
+                },
+                "fuelRatioKmpl": {
+                    "type": "number"
+                },
+                "fuelTankLiters": {
+                    "type": "number"
+                },
+                "hourmeterHours": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isAvailable": {
+                    "description": "TMS asks this before assigning a load; FMS does not care.",
+                    "type": "boolean"
+                },
+                "licensePlate": {
+                    "description": "What everyone calls the truck, exactly as the operator typed it.",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "odometerKm": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "trackerId": {
+                    "description": "TrackerID is a COPY of the live tracker assignment, kept so \"which device\nis on this vehicle\" does not need a query over history.\n\nNothing in MongoDB keeps it in step. In PostgreSQL a trigger did; here\nevery writer must, and a writer that forgets shows a device on the wrong\ntruck. Use the tracker repository's fitting methods rather than setting\nthis directly.",
+                    "type": "string"
+                },
+                "truckBodyId": {
+                    "type": "string"
+                },
+                "truckHeadId": {
+                    "description": "A head names a head type; a body or a rigid names a body type. Both\nfields rather than one, because a rigid truck has a body and no separate\nhead — forcing them through one field would mean guessing which list an\nid belongs to.",
+                    "type": "string"
+                },
+                "unitType": {
+                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.UnitType"
+                },
+                "unitYear": {
                     "type": "integer"
                 },
-                "page": {
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.errorBody": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Entry not found."
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "internal_handlers.kindInfo": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "shareable": {
+                    "description": "Shareable is false for a catalogue whose entries always belong to one\ncompany — a vehicle group, an item. Sent so a staff form offers \"shared\nwith everyone\" only where that is possible.",
+                    "type": "boolean"
+                },
+                "writable": {
+                    "description": "Writable is false for a catalogue that can be read and not edited. Sent\nso the UI can omit the add button rather than offering one that fails.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_handlers.warehouseRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "district": {
+                    "type": "string"
+                },
+                "geofenceRadiusMeters": {
                     "type": "integer"
                 },
-                "totalPages": {
-                    "type": "integer"
+                "latitude": {
+                    "description": "Pointers, so \"not supplied\" stays distinct from zero. Nought, nought is\na real place and the service refuses it; a nil pair means the site has\nno coordinate yet, which is allowed.",
+                    "type": "number"
                 },
-                "totalRows": {
-                    "type": "integer"
+                "longitude": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "picName": {
+                    "type": "string"
+                },
+                "picPhone": {
+                    "type": "string"
+                },
+                "postcode": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "siteType": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
                 }
             }
         }
@@ -704,7 +955,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "Karlo Master Data API",
-	Description:      "Reference data. Global catalogues (truck types, cargo types, cities) shared by every company, and per-company registers (trucks, warehouses, customers).",
+	Description:      "Reference data. Global catalogues (brands, truck types, cargo types, items, tracker models) shared by every company, and per-company registers (customers, vehicle groups, trucks, warehouses).\\n\\nEvery endpoint needs a bearer token from the authentication service. Karlo staff may act for a client by sending X-Acting-For: <companyId>.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

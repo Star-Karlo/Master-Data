@@ -18,6 +18,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginswagger "github.com/swaggo/gin-swagger"
+
+	// Registers the generated OpenAPI document with the swagger runtime on init.
+	_ "github.com/karlo/masterdata-service/docs"
 
 	"github.com/karlo/masterdata-service/internal/config"
 	"github.com/karlo/masterdata-service/internal/handlers"
@@ -53,6 +58,12 @@ func Setup(d Deps) *gin.Engine {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "masterdata"})
 	})
+
+	// The interactive API browser: /swagger/index.html for people,
+	// /swagger/doc.json for client generators. Served in every environment,
+	// as the other services do — the document only describes shapes, and
+	// every endpoint it lists still demands a token.
+	router.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
 	api := router.Group("/api/v1")
 	api.Use(authctx.RequireAuth(d.Verifier, d.Remote))
