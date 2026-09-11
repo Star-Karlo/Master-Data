@@ -50,7 +50,20 @@ func testDB(t *testing.T) *mongo.Database {
 		_ = client.Disconnect(disconnectCtx)
 	})
 
-	return client.Database(testDatabaseName)
+	db := client.Database(testDatabaseName)
+
+	// Indexes are part of a working database, not part of resetting one.
+	//
+	// This used to happen only in resetCollections, so a test that did not
+	// reset ran against a database with no unique constraints — and a test
+	// asserting that a duplicate is REFUSED would then fail for a reason that
+	// has nothing to do with the code it is checking. Ensuring here means every
+	// test sees the schema the service actually runs against.
+	if err := config.EnsureIndexes(ctx, db); err != nil {
+		t.Fatalf("could not ensure indexes: %v", err)
+	}
+
+	return db
 }
 
 // resetCollections drops this service's collections between tests.

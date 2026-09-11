@@ -114,9 +114,18 @@ func databaseFromURI(uri string) string {
 
 // CollectionPrefix namespaces every collection this service owns.
 //
-// The legacy models occupy the unprefixed names, so this guarantees that the
-// two systems cannot share a collection even when they share a database.
-const CollectionPrefix = "md_"
+// Empty now, and the reason it existed is worth recording. The legacy models
+// occupied the unprefixed names, so while this service might have run against
+// the legacy database the prefix guaranteed the two could not collide.
+//
+// It has its own database — karlo_masterdata, which contains nothing but these
+// collections — so the prefix guards against nothing and only makes every
+// collection name longer to read and to type in a shell.
+//
+// Set it back to "md_" if this service is ever pointed at a database that
+// already holds legacy collections; Collection() below is the single place the
+// name is decided, so nothing else has to change.
+const CollectionPrefix = ""
 
 // Collection returns the prefixed name for a logical collection.
 func Collection(name string) string {

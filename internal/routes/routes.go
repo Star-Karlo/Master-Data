@@ -1,4 +1,15 @@
-// Package routes wires the master data HTTP surface.
+// Package routes wires master data's HTTP surface.
+//
+// The reference lists and sites are readable and writable; vehicles are
+// readable only. That split is deliberate rather than unfinished: a site is a
+// name, an address and a point on a map, while creating a VEHICLE means the
+// plate rules, the head-versus-body distinction and the tracker fitting
+// history, none of which a generic writer can be trusted with.
+//
+// Every write goes through repository.Store so BeforeWrite fills the normalised
+// fields the unique indexes are built on. A handler writing to a collection
+// directly would produce a document those partial indexes ignore, and a
+// duplicate would be created with no error at all.
 package routes
 
 import (
@@ -7,12 +18,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	swaggerfiles "github.com/swaggo/files"
-	ginswagger "github.com/swaggo/gin-swagger"
 
-	// Imported for its side effect: the generated package registers the
-	// OpenAPI document with the swagger runtime on init.
-	_ "github.com/karlo/masterdata-service/docs"
 	"github.com/karlo/masterdata-service/internal/config"
 	"github.com/karlo/masterdata-service/internal/handlers"
 	"github.com/karlo/masterdata-service/internal/middleware"
@@ -48,44 +54,31 @@ func Setup(d Deps) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "masterdata"})
 	})
 
-	// The interactive API browser. It is served only outside production: the
-	// document describes every endpoint and its shapes, which is exactly the
-	// reconnaissance an attacker would otherwise have to guess at.
-	if !d.Config.IsProduction() {
-		// /swagger/index.html is the browser; /swagger/doc.json is the raw
-		// document, which is what client generators want.
-		router.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
-	}
-
 	api := router.Group("/api/v1")
 	api.Use(authctx.RequireAuth(d.Verifier, d.Remote))
 
-	// Global catalogues: readable by any authenticated user, writable only by
-	// platform staff. Reference data is shared, so a company editing it would
-	// change what every other company sees.
-	catalog := api.Group("/catalog")
-	catalog.GET("", d.Catalog.Kinds)
-	catalog.GET("/:kind", d.Catalog.List)
-	catalog.GET("/:kind/:id", d.Catalog.Get)
-	catalog.PUT("/:kind", authctx.RequireRole("superadmin", "admin"), d.Catalog.Upsert)
+	// Reference lists. One route for every catalogue, the kind selecting the
+	// collection — which is what avoids ten near-identical route groups.
+	api.GET("/catalog", authctx.RequireModule("masterData.read"), d.Catalog.Kinds)
+	api.GET("/catalog/:kind", authctx.RequireModule("masterData.read"), d.Catalog.List)
+	api.GET("/catalog/:kind/:id", authctx.RequireModule("masterData.read"), d.Catalog.Get)
 
-	// Company catalogues: scoped to the caller's company by the handler, with
-	// module permissions on the mutating routes.
-	trucks := api.Group("/trucks")
-	trucks.GET("", d.Fleet.ListTrucks)
-	trucks.GET("/:id", d.Fleet.GetTruck)
-	trucks.POST("", authctx.RequireModule("truck.create"), d.Fleet.CreateTruck)
-	trucks.PUT("/:id", authctx.RequireModule("truck.update"), d.Fleet.UpdateTruck)
-	trucks.DELETE("/:id", authctx.RequireModule("truck.delete"), d.Fleet.DeleteTruck)
-	trucks.POST("/:id/drivers", authctx.RequireModule("truck.addDriver"), d.Fleet.AddDriver)
-	trucks.DELETE("/:id/drivers", authctx.RequireModule("truck.deleteDriver"), d.Fleet.RemoveDriver)
+	// Writes. A company adds its own private entries; Karlo staff maintain the
+	// global lists everyone shares — the service decides which from the token,
+	// never from the payload.
+	api.POST("/catalog/:kind", authctx.RequireModule("masterData.create"), d.Catalog.Create)
+	api.PUT("/catalog/:kind/:id", authctx.RequireModule("masterData.update"), d.Catalog.Update)
+	api.DELETE("/catalog/:kind/:id", authctx.RequireModule("masterData.delete"), d.Catalog.Delete)
 
-	warehouses := api.Group("/warehouses")
-	warehouses.GET("", d.Fleet.ListWarehouses)
-	warehouses.GET("/:id", d.Fleet.GetWarehouse)
-	warehouses.POST("", authctx.RequireModule("warehouse.create"), d.Fleet.CreateWarehouse)
-	warehouses.PUT("/:id", authctx.RequireModule("warehouse.update"), d.Fleet.UpdateWarehouse)
-	warehouses.DELETE("/:id", authctx.RequireModule("warehouse.delete"), d.Fleet.DeleteWarehouse)
+	// The fleet register, under the names the TMS frontend already uses.
+	api.GET("/trucks", authctx.RequireModule("truck.read"), d.Fleet.ListTrucks)
+	api.GET("/trucks/:id", authctx.RequireModule("truck.read"), d.Fleet.GetTruck)
+
+	api.GET("/warehouses", authctx.RequireModule("warehouse.read"), d.Fleet.ListWarehouses)
+	api.GET("/warehouses/:id", authctx.RequireModule("warehouse.read"), d.Fleet.GetWarehouse)
+	api.POST("/warehouses", authctx.RequireModule("warehouse.create"), d.Fleet.CreateWarehouse)
+	api.PUT("/warehouses/:id", authctx.RequireModule("warehouse.update"), d.Fleet.UpdateWarehouse)
+	api.DELETE("/warehouses/:id", authctx.RequireModule("warehouse.delete"), d.Fleet.DeleteWarehouse)
 
 	return router
 }

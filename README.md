@@ -23,8 +23,8 @@ that `PUT /catalog/:kind` is still restricted to `superadmin`/`admin`, so the
 per-company write path has no caller yet.
 
 **Company data** — trucks, warehouses, customers, truck groups, points, saved
-routes — belongs to one company outright, scoped by the company id on the token
-and never by a request parameter.
+routes, trackers — belongs to one company outright, scoped by the company id on
+the token and never by a request parameter.
 
 ## Getting started
 
@@ -34,6 +34,12 @@ make run
 make seed-dry                 # preview the catalogue load; writes nothing
 make seed                     # load the global catalogues
 ```
+
+For a full local stack — accounts, companies, orders and this catalogue in one
+step — run `./seed/seed.sh` from the workspace instead; it calls the seeder
+above and then verifies the counts. Note that the compose MongoDB is published
+on host port **27018**, not 27017, so that a MongoDB already installed on the
+machine cannot silently receive the writes.
 
 `JWT_PUBLIC_KEY_FILE` must point at the authentication service's public key.
 
@@ -50,6 +56,57 @@ The seeder adds a third: it is a dry run by default, writes only with
 `-confirm`, upserts on `(companyId, kind, code)` so re-running is a no-op and a
 company's own entry of the same code is never overwritten, and never deletes.
 
+
+## Telematics devices live here, and why
+
+The link between a police number and a device's IMEI is a fact about the
+physical world that **both Karlo products need and neither owns**. TMS knows a
+vehicle by its plate; the tracking service knows it only by IMEI. Holding the
+link in shared master data means no product owns a mapping belonging to
+neither, and TMS never has to handle a device identifier it has no legitimate
+way to resolve.
+
+`md_trackers` is the device register and `md_tracker_assignments` records which
+vehicle carried which device, and when. Four decisions worth knowing before
+reading the code:
+
+**IMEI is unique globally, not per company.** Every other uniqueness rule in
+this service is scoped by `companyId`, because two companies may legitimately
+hold the same plate or the same catalogue code. A tracker is not like that: it
+is one physical object, in one company's hands. The duplicate error says only
+*"that IMEI is already registered"* and deliberately never names the company
+holding it, because doing so would confirm another tenant's inventory to
+whoever asked. `TestIMEIIsGloballyUnique` asserts the message stays that
+unhelpful.
+
+**Assignments are time-bounded because a device outlives a posting.** One
+tracker produces one continuous trail of readings across every vehicle it is
+ever fitted to. Read that trail against whichever truck holds the device
+*today* and everything an earlier truck drove is credited to the current one —
+silently, corrupting distance, fuel-per-kilometre and driver scoring rather
+than failing. `VehicleAt(imei, at)` resolves the assignment that was open at
+that instant. The Karlo fleet product has confirmed this is a live defect on
+its side today, which is why the history exists from day one.
+
+**`Fit` keeps three records in agreement**: `tracker.vehicleId`,
+`truck.trackerId`, and exactly one open assignment row. It closes any open
+assignment on either side, detaches whatever the device or the vehicle was
+previously paired with, then writes all three — and refuses a vehicle belonging
+to another company, since otherwise a caller could fit their own device to
+someone else's truck and read its position. The three writes are **not** in a
+MongoDB session; that needs a replica set, and whether to require one is an
+open decision rather than an oversight.
+
+**IMEI normalisation strips every non-digit and then requires exactly 15.**
+These arrive from spreadsheets, where a leading apostrophe, a non-breaking
+space or a hyphen is routine, and where a serial or SIM number is easily pasted
+into the wrong column. A value that is not 15 digits will never match a
+telemetry reading, so the vehicle simply reports nothing and nothing anywhere
+explains why. Entry is the only place the mistake is still cheap.
+
+The routes reuse `truck.read`, `truck.create` and `truck.update` rather than
+carrying keys of their own: a device is part of the vehicle record, not a
+separate thing a company buys.
 
 ## Catalogues are read through Redis
 

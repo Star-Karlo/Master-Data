@@ -16,31 +16,13 @@ import (
 	"github.com/karlo/masterdata-service/internal/grpcserver"
 	"github.com/karlo/masterdata-service/internal/handlers"
 	"github.com/karlo/masterdata-service/internal/platform/authctx"
-	"github.com/karlo/masterdata-service/internal/platform/cache"
 	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
 	"github.com/karlo/masterdata-service/internal/platform/grpcutil"
 	"github.com/karlo/masterdata-service/internal/platform/logger"
-	"github.com/karlo/masterdata-service/internal/repository"
 	"github.com/karlo/masterdata-service/internal/routes"
 	"github.com/karlo/masterdata-service/internal/services"
 )
 
-// @title           Karlo Master Data API
-// @version         1.0
-// @description     Reference data. Global catalogues (truck types, cargo types, cities) shared by every company, and per-company registers (trucks, warehouses, customers).
-// @termsOfService  https://karlo.co.id/terms
-//
-// @contact.name    Karlo Engineering
-// @contact.email   engineering@karlo.co.id
-//
-// @host            localhost:5002
-// @BasePath        /api/v1
-// @schemes         http https
-//
-// @securityDefinitions.apikey BearerAuth
-// @in                         header
-// @name                       Authorization
-// @description                RS256 access token issued by the authentication service, as "Bearer <token>".
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "error", err)
@@ -53,65 +35,38 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
-	// Logs go to stdout as JSON, and additionally to Fluentd when
-	// FLUENTD_HOST is set. An unreachable collector degrades to
-	// stdout-only rather than stopping the service.
-	// This service belongs to TMS; authctx resolves HasModule, Role and
-	// HasRole against it.
-	authctx.SetProduct(authctx.ProductTMS)
-
 	logger.InitFromEnv("masterdata")
 	defer logger.Close()
 
-	// This service verifies tokens but never mints them, so it loads only the
-	// public key.
-	verifier, err := authctx.NewVerifierFromEnv()
-	if err != nil {
-		return err
-	}
-
+	// The target guard. This service has its own database and must not be
+	// pointed at one holding the legacy Mongoose collections, where an
+	// unprefixed write would land in a collection the old app still reads.
 	db, err := config.ConnectMongo(cfg)
 	if err != nil {
 		return err
 	}
 
-	indexCtx, cancelIndex := context.WithTimeout(context.Background(), 30*time.Second)
-	err = config.EnsureIndexes(indexCtx, db)
-	cancelIndex()
+	verifier, err := authctx.NewVerifierFromEnv()
 	if err != nil {
 		return err
 	}
 
-	authClient, err := clients.NewAuth(
-		envOr("AUTH_GRPC_ADDR", "localhost:6001"),
-		"masterdata",
-		cfg.ServiceToken,
-	)
+	// The remote validator is the fallback for a token this service cannot
+	// verify locally. Its absence is not fatal: local verification covers
+	// every token minted under the key this process holds, which in a normal
+	// deployment is all of them.
+	var remote authctx.RemoteValidator
+	authClient, err := clients.NewAuth(cfg.AuthGRPCAddr, "masterdata", cfg.ServiceToken)
 	if err != nil {
-		return err
+		slog.Warn("authentication service unreachable; falling back to local token verification only",
+			"addr", cfg.AuthGRPCAddr, "error", err)
+	} else {
+		remote = authClient
+		defer func() { _ = authClient.Close() }()
 	}
-	defer func() {
-		if err := authClient.Close(); err != nil {
-			slog.Error("auth client close failed", "error", err)
-		}
-	}()
 
-	// A cache is optional. Without REDIS_ADDR this is a no-op implementation and
-	// the service runs correctly, just against MongoDB every time.
-	cacheClient := cache.FromEnv("masterdata")
-	defer func() {
-		if err := cacheClient.Close(); err != nil {
-			slog.Error("cache close failed", "error", err)
-		}
-	}()
-
-	catalogRepo := repository.NewCatalogRepository(db)
-	truckRepo := repository.NewTruckRepository(db)
-	warehouseRepo := repository.NewWarehouseRepository(db)
-
-	catalogService := services.NewCatalogService(catalogRepo, cacheClient, cfg.CatalogCacheTTL)
-	fleetService := services.NewFleetService(truckRepo, warehouseRepo, catalogService)
+	catalogService := services.NewCatalogService(db)
+	fleetService := services.NewFleetService(db)
 
 	grpcSrv := grpcutil.NewServer(grpcutil.ServerConfig{
 		Service:               "masterdata",
@@ -128,7 +83,7 @@ func run() error {
 	router := routes.Setup(routes.Deps{
 		Config:   cfg,
 		Verifier: verifier,
-		Remote:   authClient,
+		Remote:   remote,
 		Catalog:  handlers.NewCatalogHandler(catalogService),
 		Fleet:    handlers.NewFleetHandler(fleetService),
 	})
@@ -139,53 +94,38 @@ func run() error {
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       120 * time.Second,
 	}
 
 	errCh := make(chan error, 2)
 
 	go func() {
-		slog.Info("http server listening", "addr", httpSrv.Addr)
-		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	}()
-
-	go func() {
+		slog.Info("grpc server listening", "service", "masterdata", "addr", ":"+cfg.GRPCPort)
 		if err := grpcSrv.Serve(); err != nil {
 			errCh <- err
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		slog.Info("http server listening", "service", "masterdata",
+			"env", cfg.Environment, "addr", ":"+cfg.HTTPPort)
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	select {
 	case err := <-errCh:
 		return err
-	case sig := <-quit:
-		slog.Info("shutting down", "signal", sig.String())
+	case <-stop:
+		slog.Info("shutting down", "service", "masterdata")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := httpSrv.Shutdown(ctx); err != nil {
-		slog.Error("http shutdown failed", "error", err)
-	}
 	grpcSrv.Shutdown(ctx)
-
-	if err := db.Client().Disconnect(ctx); err != nil {
-		slog.Error("mongodb disconnect failed", "error", err)
-	}
-
-	slog.Info("stopped")
-	return nil
-}
-
-func envOr(key, fallback string) string {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v
-	}
-	return fallback
+	return httpSrv.Shutdown(ctx)
 }

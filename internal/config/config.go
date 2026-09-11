@@ -27,6 +27,10 @@ type Config struct {
 
 	CORSAllowedOrigins []string
 
+	// AuthGRPCAddr is where tokens are validated when this service cannot
+	// verify one locally — a token minted under a key it does not hold.
+	AuthGRPCAddr string
+
 	// CatalogCacheTTL controls how long global catalogue reads are cached in
 	// process. Catalogues change rarely and are read on nearly every order
 	// screen, so this removes most of the load without a separate cache tier.
@@ -46,6 +50,7 @@ func Load() (*Config, error) {
 		MongoDatabase:      envOr("MONGO_DATABASE", "karlo_masterdata"),
 		MongoTimeout:       durationOr("MONGO_TIMEOUT", 10*time.Second),
 		CORSAllowedOrigins: splitOr("CORS_ALLOWED_ORIGINS", nil),
+		AuthGRPCAddr:       envOr("AUTH_GRPC_ADDR", "localhost:6001"),
 		CatalogCacheTTL:    durationOr("CATALOG_CACHE_TTL", 5*time.Minute),
 	}
 

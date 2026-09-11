@@ -1,90 +1,97 @@
 package unit
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/karlo/masterdata-service/internal/models"
 )
 
-func TestGeoPointOrdering(t *testing.T) {
-	// GeoJSON stores [longitude, latitude], which is the reverse of how people
-	// state coordinates. NewGeoPoint takes them the spoken way round, so this
-	// test pins the transposition that would otherwise be easy to get wrong.
-	const (
-		jakartaLat = -6.2088
-		jakartaLng = 106.8456
-	)
+// TestBeforeWriteFillsTheFieldsTheIndexesUse is the test that keeps the schema
+// working.
+//
+// Every unique index in this database is on a NORMALISED field, because MongoDB
+// has no functional indexes. Those fields are written by BeforeWrite and
+// nowhere else. If a model stops filling one, the partial index simply ignores
+// the document and duplicates are created silently — no error, no rejection,
+// just two records for one truck.
+func TestBeforeWriteFillsTheFieldsTheIndexesUse(t *testing.T) {
+	v := &models.Vehicle{CompanyID: "c1", LicensePlate: "B 1234 XYZ"}
+	chassis := "mh1-234-567"
+	v.ChassisNumber = &chassis
+	v.BeforeWrite()
 
-	p := models.NewGeoPoint(jakartaLat, jakartaLng)
-
-	if p.Type != "Point" {
-		t.Errorf("Type = %q, want %q", p.Type, "Point")
+	if v.PlateNormalised != "B1234XYZ" {
+		t.Errorf("plateNormalised is %q; the unique index is on this field, so a "+
+			"wrong value means the duplicate check does not happen", v.PlateNormalised)
 	}
-	if len(p.Coordinates) != 2 {
-		t.Fatalf("expected 2 coordinates, got %d", len(p.Coordinates))
+	if v.ChassisNormalised == nil || *v.ChassisNormalised != "MH1234567" {
+		t.Error("chassisNormalised must be filled: it is what makes the same physical " +
+			"vehicle impossible to register at two companies")
 	}
-	if p.Coordinates[0] != jakartaLng {
-		t.Errorf("stored coordinates[0] = %v, want the longitude %v", p.Coordinates[0], jakartaLng)
-	}
-	if p.Coordinates[1] != jakartaLat {
-		t.Errorf("stored coordinates[1] = %v, want the latitude %v", p.Coordinates[1], jakartaLat)
-	}
-	if p.Lat() != jakartaLat {
-		t.Errorf("Lat() = %v, want %v", p.Lat(), jakartaLat)
-	}
-	if p.Lng() != jakartaLng {
-		t.Errorf("Lng() = %v, want %v", p.Lng(), jakartaLng)
+	// A vehicle with no unit type would be excluded from every "show me my
+	// trailers" query rather than defaulting sensibly.
+	if v.UnitType != models.UnitRigid {
+		t.Errorf("unitType must default to rigid, got %q", v.UnitType)
 	}
 }
 
-func TestGeoPointAccessorsOnMalformedData(t *testing.T) {
-	// A document written by something else may not carry both coordinates.
-	// The accessors must not panic on it.
-	empty := models.GeoPoint{Type: "Point"}
-	if empty.Lat() != 0 || empty.Lng() != 0 {
-		t.Error("accessors on an empty point should return zero")
-	}
-
-	partial := models.GeoPoint{Type: "Point", Coordinates: []float64{1}}
-	if partial.Lng() != 1 {
-		t.Errorf("Lng() = %v, want 1", partial.Lng())
-	}
-	if partial.Lat() != 0 {
-		t.Errorf("Lat() on a one-element point = %v, want 0", partial.Lat())
+// TestPlateThatNormalisesToNothingIsRefused covers a hole in the constraint the
+// schema leans on hardest.
+//
+// "---" normalises to an empty string. Stored, it would sit outside the unique
+// index's reach — and two such vehicles would both be accepted.
+func TestPlateThatNormalisesToNothingIsRefused(t *testing.T) {
+	v := &models.Vehicle{CompanyID: "c1", LicensePlate: "---"}
+	v.BeforeWrite()
+	if err := v.Validate(); err == nil {
+		t.Error("a plate of pure punctuation normalises to nothing and would escape " +
+			"the uniqueness rule, so it must be refused")
 	}
 }
 
-func TestIsValidKind(t *testing.T) {
-	for _, kind := range models.AllCatalogKinds {
-		if !models.IsValidKind(string(kind)) {
-			t.Errorf("IsValidKind(%q) = false for a declared kind", kind)
-		}
-	}
+// TestGlobalAndCompanyEntriesNormaliseAlike covers the reference lists.
+//
+// A global entry Karlo maintains and a company's own addition live in one
+// collection. Two partial unique indexes separate them — unique on the name
+// where companyId is null, unique on (companyId, name) where it is not — so two
+// globals sharing a name collide while a company may still use a name a global
+// entry already has. Verified against the live database.
+//
+// What the models must guarantee is that both sides normalise the name the SAME
+// way; if they did not, the two indexes would be comparing different values and
+// neither rule would hold.
+func TestGlobalAndCompanyEntriesNormaliseAlike(t *testing.T) {
+	global := &models.Brand{Name: "Hino"}
+	global.BeforeWrite()
 
-	// The kind selects which data is read, so an unknown one must be rejected
-	// before it reaches a query.
-	for _, bad := range []string{"", "users", "orders", "TRUCKTYPE", "../etc"} {
-		if models.IsValidKind(bad) {
-			t.Errorf("IsValidKind(%q) = true for an unknown kind", bad)
-		}
+	owned := &models.Brand{Name: "  HINO  "}
+	company := "11111111-1111-1111-1111-111111111111"
+	owned.CompanyID = &company
+	owned.BeforeWrite()
+
+	if owned.NameNormalised != global.NameNormalised {
+		t.Errorf("the same name must normalise identically regardless of owner: "+
+			"%q versus %q", owned.NameNormalised, global.NameNormalised)
+	}
+	if global.NameNormalised != "hino" {
+		t.Errorf("expected the folded form, got %q", global.NameNormalised)
 	}
 }
 
-func TestCollectionNamesArePrefixed(t *testing.T) {
-	names := []string{
-		models.CatalogItem{}.CollectionName(),
-		models.Truck{}.CollectionName(),
-		models.Warehouse{}.CollectionName(),
-		models.Customer{}.CollectionName(),
-		models.Point{}.CollectionName(),
-		models.TruckGroup{}.CollectionName(),
-		models.SavedRoute{}.CollectionName(),
+// TestChannelKeyIsFilledForUnchannelledSensors covers the other place a missing
+// field would defeat a unique index.
+func TestChannelKeyIsFilledForUnchannelledSensors(t *testing.T) {
+	s := &models.TrackerSensor{TrackerID: "t1", SensorTypeID: "fuel"}
+	s.BeforeWrite()
+	if s.ChannelKey != "" {
+		t.Errorf("expected an empty channel key, got %q", s.ChannelKey)
 	}
-
-	for _, name := range names {
-		if !strings.HasPrefix(name, "md_") {
-			t.Errorf("collection %q is missing the md_ prefix that keeps it clear of legacy collections", name)
-		}
+	// The point is that it is PRESENT and comparable, not absent — an absent
+	// field is skipped by the index and the same sensor could be fitted twice.
+	ain1 := "ain1"
+	s2 := &models.TrackerSensor{TrackerID: "t1", SensorTypeID: "fuel", Channel: &ain1}
+	s2.BeforeWrite()
+	if s2.ChannelKey != "AIN1" {
+		t.Errorf("channel case must fold, got %q", s2.ChannelKey)
 	}
 }

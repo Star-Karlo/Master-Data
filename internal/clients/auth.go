@@ -60,9 +60,7 @@ func principalFrom(user *authv1.User) authctx.Principal {
 	p := authctx.Principal{
 		UserID:          user.GetId(),
 		CompanyID:       user.GetCompanyId(),
-		ParentID:        user.GetParentId(),
 		IsPlatformStaff: user.GetIsPlatformStaff(),
-		FMSTenantID:     user.GetFmsTenantId(),
 	}
 
 	if access := user.GetAccess(); len(access) > 0 {
@@ -72,6 +70,10 @@ func principalFrom(user *authv1.User) authctx.Principal {
 				Role:        a.GetRole(),
 				Permissions: a.GetPermissions(),
 				Features:    a.GetFeatures(),
+				// Carried across the wire. Without it an administrator rebuilt
+				// from a remote validation arrives with an empty permission
+				// list and is refused everywhere — which is what happened.
+				GrantsAll: a.GetGrantsAll(),
 			}
 		}
 	}

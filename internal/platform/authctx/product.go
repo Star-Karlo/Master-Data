@@ -23,7 +23,11 @@ const (
 // PermissionSpec describes one entry in a product's permission catalogue.
 type PermissionSpec struct {
 	// Key is what is granted to a user, in `subject.action` form.
-	Key string
+	//
+	// The JSON tags matter: this struct is served to the permission editor, and
+	// without them Go marshals the field names verbatim — Key, Feature, Group —
+	// which the client reads as undefined and renders as an empty list.
+	Key string `json:"key"`
 
 	// Feature is the company entitlement that gates this permission — and it
 	// is NOT derivable from the key.
@@ -39,11 +43,11 @@ type PermissionSpec struct {
 	// grant. FMS uses this for its master-data and administration surface —
 	// managing vehicles, drivers, users and roles is always available to a
 	// company that has the product at all.
-	Feature string
+	Feature string `json:"feature,omitempty"`
 
 	// Group and Label drive the permission editor.
-	Group string
-	Label string
+	Group string `json:"group"`
+	Label string `json:"label"`
 }
 
 // Catalog is one product's permission catalogue, keyed by permission key.

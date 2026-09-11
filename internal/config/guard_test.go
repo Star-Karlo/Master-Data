@@ -93,23 +93,37 @@ func TestGuardAllowsFreshTargets(t *testing.T) {
 	}
 }
 
-// TestCollectionPrefixAvoidsLegacyNames confirms the second line of defence:
-// the legacy Mongoose models occupy the unprefixed names, so nothing this
-// service writes can land in one of their collections.
-func TestCollectionPrefixAvoidsLegacyNames(t *testing.T) {
-	legacyCollections := []string{"trucks", "warehouses", "customers", "points", "clusters"}
+// TestCollectionNaming covers Collection(), which is the single place a
+// collection name is decided.
+//
+// The prefix is deliberately empty. It was "md_" while this service shared a
+// database with the legacy Mongoose models, where an unprefixed name would have
+// written into one of their collections; it now has karlo_masterdata to itself,
+// so the prefix guarded against nothing and only made every name longer to read
+// and to type in a shell. guardTarget above is what enforces the separation now.
+//
+// The test therefore asserts the CONTRACT rather than the current value: apply
+// the prefix when one is set, leave the name alone when it is not, and never
+// double it. Setting CollectionPrefix back to "md_" should leave this passing.
+func TestCollectionNaming(t *testing.T) {
+	names := []string{"trucks", "warehouses", "customers", "points", "clusters"}
 
-	for _, legacy := range legacyCollections {
-		got := Collection(legacy)
-		if got == legacy {
-			t.Errorf("Collection(%q) returned the legacy name unchanged", legacy)
-		}
+	for _, name := range names {
+		got := Collection(name)
+
 		if !strings.HasPrefix(got, CollectionPrefix) {
-			t.Errorf("Collection(%q) = %q, which lacks the %q prefix", legacy, got, CollectionPrefix)
+			t.Errorf("Collection(%q) = %q, which lacks the %q prefix", name, got, CollectionPrefix)
+		}
+		if CollectionPrefix == "" && got != name {
+			t.Errorf("Collection(%q) = %q; with no prefix configured it should be identity", name, got)
+		}
+		if CollectionPrefix != "" && got == name {
+			t.Errorf("Collection(%q) returned the bare name despite the %q prefix", name, CollectionPrefix)
 		}
 	}
 
-	// Applying the prefix twice must not double it.
+	// Applying the prefix twice must not double it — collection names reach
+	// Collection() from model methods that may already have been through it.
 	if once, twice := Collection("trucks"), Collection(Collection("trucks")); once != twice {
 		t.Errorf("Collection is not idempotent: %q vs %q", once, twice)
 	}

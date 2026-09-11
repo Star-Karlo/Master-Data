@@ -1,24 +1,30 @@
-// Package grpcserver implements the MasterDataService contract.
+// Package grpcserver is master data's service-to-service surface.
+//
+// It exists for one caller today — the business service, which must resolve
+// truck plates, warehouse coordinates and catalogue references while writing an
+// order. Those reads are on the critical path of every order listing, so they
+// go over gRPC rather than HTTP.
+//
+// The proto still speaks the OLD vocabulary: trucks, warehouses, and a
+// catalogue addressed by `kind`. The services package translates onto the
+// current model; this layer only converts shapes.
 package grpcserver
 
 import (
 	"context"
-	"errors"
 
-	"github.com/karlo/masterdata-service/internal/models"
-	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
-	"github.com/karlo/masterdata-service/internal/platform/query"
-	"github.com/karlo/masterdata-service/internal/platform/safeconv"
-	"github.com/karlo/masterdata-service/internal/repository"
-	"github.com/karlo/masterdata-service/internal/services"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	commonv1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/common/v1"
+	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
+	"github.com/karlo/masterdata-service/internal/platform/query"
+	"github.com/karlo/masterdata-service/internal/services"
 )
 
-// Server implements masterdatav1.MasterDataServiceServer.
+// Server implements MasterDataService.
 type Server struct {
 	masterdatav1.UnimplementedMasterDataServiceServer
 
@@ -30,376 +36,313 @@ func New(catalog *services.CatalogService, fleet *services.FleetService) *Server
 	return &Server{catalog: catalog, fleet: fleet}
 }
 
+// kindNames maps the proto enum onto the names the services package uses.
+//
+// Only the kinds this model actually has are present. The enum still carries
+// entries from the previous model — CATALOG_KIND_TRUCK_TYPE, KOTA, PROVINSI and
+// the rest — and they are deliberately unmapped: answering one of them with a
+// plausible substitute would return the wrong list and look right. An unmapped
+// kind is refused by name, which is a failure someone can act on.
+var kindNames = map[masterdatav1.CatalogKind]string{
+	masterdatav1.CatalogKind_CATALOG_KIND_BRAND:      "brand",
+	masterdatav1.CatalogKind_CATALOG_KIND_CARGO_TYPE: "cargoType",
+	masterdatav1.CatalogKind_CATALOG_KIND_ITEM:       "item",
+	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_TYPE:  "itemSubCategory",
+	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_HEAD: "truckHead",
+	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_BODY: "truckBody",
+}
+
+func kindName(k masterdatav1.CatalogKind) (string, error) {
+	name, ok := kindNames[k]
+	if !ok {
+		return "", status.Errorf(codes.InvalidArgument,
+			"catalogue %s is not served by this model", k)
+	}
+	return name, nil
+}
+
 func (s *Server) GetCatalogItem(ctx context.Context, req *masterdatav1.GetCatalogItemRequest) (*masterdatav1.GetCatalogItemResponse, error) {
-	kind, err := kindFromProto(req.GetKind())
+	name, err := kindName(req.GetKind())
 	if err != nil {
 		return nil, err
 	}
-	id, err := primitive.ObjectIDFromHex(req.GetId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "malformed item id")
-	}
 
-	item, err := s.catalog.Get(ctx, req.GetCompanyId(), string(kind), id)
+	// Never staff-exempt: this runs for the business service acting on ONE
+	// company's behalf, so it must see exactly what that company sees.
+	entry, err := s.catalog.Get(ctx, name, req.GetId(), req.GetCompanyId(), false)
 	if err != nil {
-		return nil, mapError(err, "catalogue entry")
+		return nil, mapError(err)
 	}
-
-	return &masterdatav1.GetCatalogItemResponse{Item: toProtoCatalogItem(item)}, nil
+	return &masterdatav1.GetCatalogItemResponse{Item: toProtoItem(req.GetKind(), *entry)}, nil
 }
 
 func (s *Server) ListCatalogItems(ctx context.Context, req *masterdatav1.ListCatalogItemsRequest) (*masterdatav1.ListCatalogItemsResponse, error) {
-	kind, err := kindFromProto(req.GetKind())
+	name, err := kindName(req.GetKind())
 	if err != nil {
 		return nil, err
 	}
 
-	var parentID *primitive.ObjectID
-	if raw := req.GetParentId(); raw != "" {
-		id, perr := primitive.ObjectIDFromHex(raw)
-		if perr != nil {
-			return nil, status.Error(codes.InvalidArgument, "malformed parent id")
-		}
-		parentID = &id
+	p := query.FromProto(req.GetQuery(), catalogFields)
+	if p.Err != nil {
+		return nil, status.Error(codes.InvalidArgument, p.Err.Error())
 	}
 
-	params := query.FromProto(req.GetQuery(), repository.CatalogFields())
-
-	items, total, err := s.catalog.List(ctx, req.GetCompanyId(), string(kind), parentID, params)
+	entries, total, err := s.catalog.List(ctx, name, req.GetCompanyId(), req.GetParentId(), false, p)
 	if err != nil {
-		return nil, mapError(err, "catalogue")
+		return nil, mapError(err)
 	}
 
-	out := make([]*masterdatav1.CatalogItem, 0, len(items))
-	for i := range items {
-		out = append(out, toProtoCatalogItem(&items[i]))
+	items := make([]*masterdatav1.CatalogItem, 0, len(entries))
+	for _, e := range entries {
+		items = append(items, toProtoItem(req.GetKind(), e))
 	}
 
 	return &masterdatav1.ListCatalogItemsResponse{
-		Items:    out,
-		PageInfo: params.PageInfo(total),
+		Items:    items,
+		PageInfo: pageInfo(p, total),
 	}, nil
 }
 
-// ResolveCatalogItems batch-resolves references. Malformed refs are dropped
-// rather than failing the call: the caller is denormalising a page of rows, and
-// one bad id should not cost them the other forty.
 func (s *Server) ResolveCatalogItems(ctx context.Context, req *masterdatav1.ResolveCatalogItemsRequest) (*masterdatav1.ResolveCatalogItemsResponse, error) {
-	refs := decodeRefs(req.GetRefs())
-	if len(refs) == 0 {
-		return &masterdatav1.ResolveCatalogItemsResponse{}, nil
-	}
-
-	items, err := s.catalog.Resolve(ctx, req.GetCompanyId(), refs)
+	byKind, kinds, err := groupRefs(req.GetRefs())
 	if err != nil {
-		return nil, mapError(err, "catalogue")
+		return nil, err
 	}
 
-	out := make([]*masterdatav1.CatalogItem, 0, len(items))
-	for i := range items {
-		out = append(out, toProtoCatalogItem(&items[i]))
+	resolved, err := s.catalog.Resolve(ctx, req.GetCompanyId(), byKind)
+	if err != nil {
+		return nil, mapError(err)
 	}
-	return &masterdatav1.ResolveCatalogItemsResponse{Items: out}, nil
+
+	items := make([]*masterdatav1.CatalogItem, 0, len(resolved))
+	for id, entry := range resolved {
+		items = append(items, toProtoItem(kinds[id], entry))
+	}
+	return &masterdatav1.ResolveCatalogItemsResponse{Items: items}, nil
 }
 
-// ValidateReferences reports which references do not resolve.
-//
-// A malformed id counts as invalid rather than being ignored: this RPC exists
-// to gate a write, so anything it cannot vouch for must be reported.
 func (s *Server) ValidateReferences(ctx context.Context, req *masterdatav1.ValidateReferencesRequest) (*masterdatav1.ValidateReferencesResponse, error) {
-	var (
-		refs      []repository.CatalogRef
-		malformed []*masterdatav1.CatalogRef
-	)
-
-	for _, r := range req.GetRefs() {
-		kind, err := kindFromProto(r.GetKind())
-		if err != nil {
-			malformed = append(malformed, r)
-			continue
-		}
-		id, err := primitive.ObjectIDFromHex(r.GetId())
-		if err != nil {
-			malformed = append(malformed, r)
-			continue
-		}
-		refs = append(refs, repository.CatalogRef{Kind: kind, ID: id})
-	}
-
-	invalid, err := s.catalog.Validate(ctx, req.GetCompanyId(), refs)
+	byKind, kinds, err := groupRefs(req.GetRefs())
 	if err != nil {
-		return nil, mapError(err, "catalogue")
+		return nil, err
 	}
 
-	out := append([]*masterdatav1.CatalogRef{}, malformed...)
-	for _, ref := range invalid {
-		out = append(out, &masterdatav1.CatalogRef{
-			Kind: kindToProto(ref.Kind),
-			Id:   ref.ID.Hex(),
-		})
+	invalidIDs, err := s.catalog.Validate(ctx, req.GetCompanyId(), byKind)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	// Returned as refs rather than bare ids so the caller can say WHICH
+	// catalogue each failure was in. "cargo type 66f… does not exist" is
+	// actionable; a list of hex strings is not.
+	invalid := make([]*masterdatav1.CatalogRef, 0, len(invalidIDs))
+	for _, id := range invalidIDs {
+		invalid = append(invalid, &masterdatav1.CatalogRef{Kind: kinds[id], Id: id})
 	}
 
 	return &masterdatav1.ValidateReferencesResponse{
-		Valid:   len(out) == 0,
-		Invalid: out,
+		Valid:   len(invalid) == 0,
+		Invalid: invalid,
 	}, nil
+}
+
+// groupRefs buckets references by catalogue and remembers each id's kind, so a
+// resolved entry can be labelled with the kind it was asked for.
+func groupRefs(refs []*masterdatav1.CatalogRef) (map[string][]string, map[string]masterdatav1.CatalogKind, error) {
+	byKind := map[string][]string{}
+	kinds := map[string]masterdatav1.CatalogKind{}
+
+	for _, ref := range refs {
+		name, err := kindName(ref.GetKind())
+		if err != nil {
+			return nil, nil, err
+		}
+		byKind[name] = append(byKind[name], ref.GetId())
+		kinds[ref.GetId()] = ref.GetKind()
+	}
+	return byKind, kinds, nil
 }
 
 func (s *Server) GetTruck(ctx context.Context, req *masterdatav1.GetTruckRequest) (*masterdatav1.GetTruckResponse, error) {
-	id, err := primitive.ObjectIDFromHex(req.GetId())
+	// No company scoping: the caller is another service that has already
+	// established the caller's authority over the order this truck belongs to,
+	// and it holds only the truck id.
+	truck, err := s.fleet.GetTruck(ctx, "", req.GetId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "malformed truck id")
+		return nil, mapError(err)
 	}
-
-	truck, err := s.fleet.GetTruckForService(ctx, id)
-	if err != nil {
-		return nil, mapError(err, "truck")
-	}
-
-	return &masterdatav1.GetTruckResponse{Truck: toProtoTruck(truck)}, nil
+	return &masterdatav1.GetTruckResponse{Truck: toProtoTruck(*truck)}, nil
 }
 
 func (s *Server) ListTrucks(ctx context.Context, req *masterdatav1.ListTrucksRequest) (*masterdatav1.ListTrucksResponse, error) {
-	// The company id is required here, unlike GetTruck: a listing without a
-	// tenant filter would return every company's fleet.
-	if req.GetCompanyId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	p := query.FromProto(req.GetQuery(), truckFields)
+	if p.Err != nil {
+		return nil, status.Error(codes.InvalidArgument, p.Err.Error())
 	}
 
-	params := query.FromProto(req.GetQuery(), repository.TruckFields())
+	// The availability filter arrives as an ordinary query filter rather than
+	// a field on the request, so it is lifted out here — the service asks for
+	// it as a flag because it selects a different index.
+	availableOnly := false
+	for _, f := range p.Filters {
+		if f.Field == "isAvailable" && f.Value == "true" {
+			availableOnly = true
+		}
+	}
 
-	trucks, total, err := s.fleet.ListTrucks(ctx, req.GetCompanyId(), params)
+	trucks, total, err := s.fleet.ListTrucks(ctx, req.GetCompanyId(), p, availableOnly)
 	if err != nil {
-		return nil, mapError(err, "trucks")
+		return nil, mapError(err)
 	}
 
 	out := make([]*masterdatav1.Truck, 0, len(trucks))
-	for i := range trucks {
-		out = append(out, toProtoTruck(&trucks[i]))
+	for _, t := range trucks {
+		out = append(out, toProtoTruck(t))
 	}
-
-	return &masterdatav1.ListTrucksResponse{
-		Trucks:   out,
-		PageInfo: params.PageInfo(total),
-	}, nil
+	return &masterdatav1.ListTrucksResponse{Trucks: out, PageInfo: pageInfo(p, total)}, nil
 }
 
 func (s *Server) GetTrucksByDriver(ctx context.Context, req *masterdatav1.GetTrucksByDriverRequest) (*masterdatav1.GetTrucksByDriverResponse, error) {
-	if req.GetDriverId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "driver_id is required")
-	}
-
-	trucks, err := s.fleet.TrucksByDriver(ctx, req.GetDriverId())
+	// The request carries only a driver id. The pairing is unique across
+	// companies — a driver works for one — so scoping is unnecessary here and
+	// an empty company means "wherever this driver is".
+	trucks, err := s.fleet.TrucksByDriver(ctx, "", req.GetDriverId())
 	if err != nil {
-		return nil, mapError(err, "trucks")
+		return nil, mapError(err)
 	}
 
 	out := make([]*masterdatav1.Truck, 0, len(trucks))
-	for i := range trucks {
-		out = append(out, toProtoTruck(&trucks[i]))
+	for _, t := range trucks {
+		out = append(out, toProtoTruck(t))
 	}
 	return &masterdatav1.GetTrucksByDriverResponse{Trucks: out}, nil
 }
 
 func (s *Server) GetWarehouse(ctx context.Context, req *masterdatav1.GetWarehouseRequest) (*masterdatav1.GetWarehouseResponse, error) {
-	id, err := primitive.ObjectIDFromHex(req.GetId())
+	site, err := s.fleet.GetWarehouse(ctx, "", req.GetId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "malformed warehouse id")
+		return nil, mapError(err)
 	}
-
-	w, err := s.fleet.GetWarehouseForService(ctx, id)
-	if err != nil {
-		return nil, mapError(err, "warehouse")
-	}
-
-	return &masterdatav1.GetWarehouseResponse{Warehouse: toProtoWarehouse(w)}, nil
+	return &masterdatav1.GetWarehouseResponse{Warehouse: toProtoWarehouse(*site)}, nil
 }
 
 func (s *Server) ListWarehouses(ctx context.Context, req *masterdatav1.ListWarehousesRequest) (*masterdatav1.ListWarehousesResponse, error) {
-	if req.GetCompanyId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	p := query.FromProto(req.GetQuery(), warehouseFields)
+	if p.Err != nil {
+		return nil, status.Error(codes.InvalidArgument, p.Err.Error())
 	}
 
-	params := query.FromProto(req.GetQuery(), repository.WarehouseFields())
-
-	items, total, err := s.fleet.ListWarehouses(ctx, req.GetCompanyId(), params)
+	sites, total, err := s.fleet.ListWarehouses(ctx, req.GetCompanyId(), p)
 	if err != nil {
-		return nil, mapError(err, "warehouses")
+		return nil, mapError(err)
 	}
 
-	out := make([]*masterdatav1.Warehouse, 0, len(items))
-	for i := range items {
-		out = append(out, toProtoWarehouse(&items[i]))
+	out := make([]*masterdatav1.Warehouse, 0, len(sites))
+	for _, w := range sites {
+		out = append(out, toProtoWarehouse(w))
 	}
-
-	return &masterdatav1.ListWarehousesResponse{
-		Warehouses: out,
-		PageInfo:   params.PageInfo(total),
-	}, nil
+	return &masterdatav1.ListWarehousesResponse{Warehouses: out, PageInfo: pageInfo(p, total)}, nil
 }
 
 // ---------------------------------------------------------------------------
-// Mapping
+// Shape conversion
 // ---------------------------------------------------------------------------
 
-// kindMapping is the single source of truth for the enum-to-string mapping, so
-// the two directions cannot disagree.
-var kindMapping = map[masterdatav1.CatalogKind]models.CatalogKind{
-	masterdatav1.CatalogKind_CATALOG_KIND_BRAND:                models.KindBrand,
-	masterdatav1.CatalogKind_CATALOG_KIND_CARGO_TYPE:           models.KindCargoType,
-	masterdatav1.CatalogKind_CATALOG_KIND_CARGO_TRUCK_CAPACITY: models.KindCargoTruckCapacity,
-	masterdatav1.CatalogKind_CATALOG_KIND_CURRENCY:             models.KindCurrency,
-	masterdatav1.CatalogKind_CATALOG_KIND_DISTRICT:             models.KindDistrict,
-	masterdatav1.CatalogKind_CATALOG_KIND_ITEM:                 models.KindItem,
-	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_CHARACTER:       models.KindItemCharacter,
-	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_TYPE:            models.KindItemType,
-	masterdatav1.CatalogKind_CATALOG_KIND_KOTA:                 models.KindKota,
-	masterdatav1.CatalogKind_CATALOG_KIND_PAYMENT_TYPE:         models.KindPaymentType,
-	masterdatav1.CatalogKind_CATALOG_KIND_PRICING_TYPE:         models.KindPricingType,
-	masterdatav1.CatalogKind_CATALOG_KIND_PROVINSI:             models.KindProvinsi,
-	masterdatav1.CatalogKind_CATALOG_KIND_RATE_CARD:            models.KindRateCard,
-	masterdatav1.CatalogKind_CATALOG_KIND_REQUIREMENT:          models.KindRequirement,
-	masterdatav1.CatalogKind_CATALOG_KIND_ROUTE:                models.KindRoute,
-	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_BODY:           models.KindTruckBody,
-	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_HEAD:           models.KindTruckHead,
-	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_TYPE:           models.KindTruckType,
-	masterdatav1.CatalogKind_CATALOG_KIND_FAQ:                  models.KindFaq,
-	masterdatav1.CatalogKind_CATALOG_KIND_JOB_VACANCY:          models.KindJobVacancy,
+func toProtoItem(kind masterdatav1.CatalogKind, e services.CatalogEntry) *masterdatav1.CatalogItem {
+	item := &masterdatav1.CatalogItem{
+		Id: e.ID, Kind: kind,
+		Code: e.Code, Name: e.Name, Description: e.Desc, Active: e.Active,
+	}
+	if e.CompanyID != nil {
+		item.CompanyId = *e.CompanyID
+	}
+	if attrs, err := structpb.NewStruct(e.Attrs); err == nil {
+		// A conversion failure yields nil rather than an error: attributes are
+		// supplementary, and losing them beats failing the whole read.
+		item.Attributes = attrs
+	}
+	return item
 }
 
-var reverseKindMapping = func() map[models.CatalogKind]masterdatav1.CatalogKind {
-	out := make(map[models.CatalogKind]masterdatav1.CatalogKind, len(kindMapping))
-	for k, v := range kindMapping {
-		out[v] = k
-	}
-	return out
-}()
-
-func kindFromProto(k masterdatav1.CatalogKind) (models.CatalogKind, error) {
-	kind, ok := kindMapping[k]
-	if !ok {
-		return "", status.Errorf(codes.InvalidArgument, "unknown catalogue kind %s", k)
-	}
-	return kind, nil
-}
-
-func kindToProto(k models.CatalogKind) masterdatav1.CatalogKind {
-	if v, ok := reverseKindMapping[k]; ok {
-		return v
-	}
-	return masterdatav1.CatalogKind_CATALOG_KIND_UNSPECIFIED
-}
-
-func decodeRefs(in []*masterdatav1.CatalogRef) []repository.CatalogRef {
-	out := make([]repository.CatalogRef, 0, len(in))
-	for _, r := range in {
-		kind, err := kindFromProto(r.GetKind())
-		if err != nil {
-			continue
-		}
-		id, err := primitive.ObjectIDFromHex(r.GetId())
-		if err != nil {
-			continue
-		}
-		out = append(out, repository.CatalogRef{Kind: kind, ID: id})
-	}
-	return out
-}
-
-func toProtoCatalogItem(item *models.CatalogItem) *masterdatav1.CatalogItem {
-	if item == nil {
-		return nil
-	}
-	return &masterdatav1.CatalogItem{
-		Id:          item.ID.Hex(),
-		Kind:        kindToProto(item.Kind),
-		CompanyId:   item.CompanyID,
-		Code:        item.Code,
-		Name:        item.Name,
-		Description: item.Description,
-		Active:      item.Active,
-		Attributes:  toStruct(item.Attributes),
-		CreatedAt:   timestamppb.New(item.CreatedAt),
-		UpdatedAt:   timestamppb.New(item.UpdatedAt),
-	}
-}
-
-func toProtoTruck(t *models.Truck) *masterdatav1.Truck {
-	if t == nil {
-		return nil
-	}
+func toProtoTruck(t services.Truck) *masterdatav1.Truck {
 	return &masterdatav1.Truck{
-		Id:            t.ID.Hex(),
+		Id:            t.ID,
 		CompanyId:     t.CompanyID,
 		PoliceNumber:  t.PoliceNumber,
-		TruckTypeId:   hexOrEmpty(t.TruckTypeID),
-		TruckHeadId:   hexOrEmpty(t.TruckHeadID),
-		TruckBodyId:   hexOrEmpty(t.TruckBodyID),
-		BrandId:       hexOrEmpty(t.BrandID),
-		Year:          safeconv.NonNegativeInt32(t.Year),
+		TruckTypeId:   t.TruckTypeID,
+		TruckHeadId:   t.TruckHeadID,
+		TruckBodyId:   t.TruckBodyID,
+		BrandId:       t.BrandID,
+		Year:          int32(t.Year), //nolint:gosec // a model year cannot overflow
 		ChassisNumber: t.ChassisNumber,
 		EngineNumber:  t.EngineNumber,
 		DriverIds:     t.DriverIDs,
-		TruckGroupId:  hexOrEmpty(t.TruckGroupID),
 		Status:        t.Status,
 		IsAvailable:   t.IsAvailable,
-		Documents:     toStruct(t.Documents),
-		Deleted:       t.Deleted,
+		Imei:          t.IMEI,
 		CreatedAt:     timestamppb.New(t.CreatedAt),
 		UpdatedAt:     timestamppb.New(t.UpdatedAt),
 	}
 }
 
-func toProtoWarehouse(w *models.Warehouse) *masterdatav1.Warehouse {
-	if w == nil {
-		return nil
-	}
+func toProtoWarehouse(w services.Warehouse) *masterdatav1.Warehouse {
 	return &masterdatav1.Warehouse{
-		Id:                   w.ID.Hex(),
-		CompanyId:            w.CompanyID,
-		Name:                 w.Name,
-		Address:              w.Address,
-		CityId:               hexOrEmpty(w.CityID),
-		ProvinceId:           hexOrEmpty(w.ProvinceID),
-		Latitude:             w.Location.Lat(),
-		Longitude:            w.Location.Lng(),
-		GeofenceRadiusMeters: safeconv.NonNegativeInt32(w.GeofenceRadius),
-		PicName:              w.PICName,
+		Id:        w.ID,
+		CompanyId: w.CompanyID,
+		Name:      w.Name,
+		Address:   w.Address,
+		// CityId and ProvinceId carry NAMES in this model — there is no region
+		// table, so an id here would reference nothing. The field names are the
+		// proto's and predate that decision.
+		CityId:               w.City,
+		ProvinceId:           w.Province,
+		Latitude:             w.Latitude,
+		Longitude:            w.Longitude,
+		GeofenceRadiusMeters: int32(w.GeofenceRadiusMeters), //nolint:gosec // metres, bounded
 		PicPhone:             w.PICPhone,
-		Deleted:              w.Deleted,
 		CreatedAt:            timestamppb.New(w.CreatedAt),
 		UpdatedAt:            timestamppb.New(w.UpdatedAt),
 	}
 }
 
-// toStruct converts a free-form map. A conversion failure yields nil rather
-// than an error: attributes are supplementary, and losing them is better than
-// failing the whole read.
-func toStruct(m map[string]interface{}) *structpb.Struct {
-	if len(m) == 0 {
-		return nil
+func pageInfo(p query.Params, total int64) *commonv1.PageInfo {
+	pages := 0
+	if p.PageSize > 0 {
+		pages = int((total + int64(p.PageSize) - 1) / int64(p.PageSize))
 	}
-	s, err := structpb.NewStruct(m)
-	if err != nil {
-		return nil
+	return &commonv1.PageInfo{
+		Page:       int32(p.Page),     //nolint:gosec // clamped by query.Parse
+		PageSize:   int32(p.PageSize), //nolint:gosec // clamped by query.Parse
+		TotalRows:  total,
+		TotalPages: int32(pages), //nolint:gosec // derived from the clamped size
 	}
-	return s
 }
 
-func hexOrEmpty(id *primitive.ObjectID) string {
-	if id == nil {
-		return ""
-	}
-	return id.Hex()
-}
-
-func mapError(err error, subject string) error {
+func mapError(err error) error {
 	switch {
-	case errors.Is(err, repository.ErrNotFound):
-		return status.Errorf(codes.NotFound, "%s not found", subject)
-	case errors.Is(err, services.ErrInvalidKind), errors.Is(err, services.ErrValidation):
-		return status.Error(codes.InvalidArgument, err.Error())
+	case err == nil:
+		return nil
+	case isNotFound(err):
+		return status.Error(codes.NotFound, "not found")
 	default:
-		return status.Errorf(codes.Internal, "failed to load %s", subject)
+		return status.Error(codes.Internal, "request failed")
 	}
 }
+
+func isNotFound(err error) bool { return err == services.ErrNotFound }
+
+// The gRPC allowlists mirror the HTTP ones. Kept here rather than exported from
+// handlers so the two surfaces cannot silently diverge on what is filterable
+// without someone noticing this file.
+var (
+	catalogFields = query.FieldSet{
+		"name": "name", "code": "code", "isActive": "isActive", "createdAt": "createdAt",
+	}
+	truckFields = query.FieldSet{
+		"policeNumber": "licensePlate", "status": "status",
+		"isAvailable": "isAvailable", "createdAt": "createdAt",
+	}
+	warehouseFields = query.FieldSet{
+		"name": "name", "city": "city", "createdAt": "createdAt",
+	}
+)

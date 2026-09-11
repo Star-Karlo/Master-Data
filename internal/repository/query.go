@@ -25,10 +25,11 @@ func applyFilters(filter bson.M, p query.Params) {
 		case query.OpLike:
 			filter[f.Field] = regexSearch(f.Value)
 		case query.OpIn:
-			parts := strings.Split(f.Value, ",")
-			values := make([]interface{}, 0, len(parts))
-			for _, part := range parts {
-				values = append(values, coerce(strings.TrimSpace(part)))
+			// Values is normalised by the query parser, so both the array and
+			// the comma-separated spellings arrive here already split.
+			values := make([]interface{}, 0, len(f.Values))
+			for _, v := range f.Values {
+				values = append(values, v)
 			}
 			filter[f.Field] = bson.M{"$in": values}
 		case query.OpGt:
