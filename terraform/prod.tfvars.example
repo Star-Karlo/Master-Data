@@ -32,16 +32,8 @@ extra_environment = [
   { name = "CATALOG_CACHE_TTL", value = "15m" },
 ]
 
-secrets = [
-  { name = "MONGO_URI", valueFrom = "SECRET_DOCDB:uri::" },
-  { name = "JWT_PUBLIC_KEY", valueFrom = "SECRET_JWT_PUBLIC" },
-  { name = "SERVICE_TOKEN", valueFrom = "SECRET_TOKENS:masterdata-service::" },
-  { name = "ACCEPTED_SERVICE_TOKENS", valueFrom = "SECRET_TOKENS:all::" },
-]
 
 # Note the absence of the private key: only the authentication service holds it.
-secret_arns = ["SECRET_DOCDB", "SECRET_JWT_PUBLIC", "SECRET_TOKENS"]
 
-# The SECRET_* placeholders are Secrets Manager ARNs from platform-terraform's
 # `secret_arns` output. Copy this file to prod.tfvars and substitute them; the
 # copy is gitignored because the ARNs name where production credentials live.
