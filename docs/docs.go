@@ -322,6 +322,735 @@ const docTemplate = `{
                 }
             }
         },
+        "/documents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "One of vehicleId or driverId is required unless expiringWithinDays is set, which sweeps the company.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "List documents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Owner vehicle",
+                        "name": "vehicleId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Owner driver",
+                        "name": "driverId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Only documents expiring within N days",
+                        "name": "expiringWithinDays",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success, data []models.Document, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Add a document",
+                "parameters": [
+                    {
+                        "description": "Document; exactly one of vehicleId / driverId",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.DocumentInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Document"
+                        }
+                    }
+                }
+            }
+        },
+        "/documents/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Edit a document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields; owner cannot change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.DocumentInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Document"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Delete a document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/documents/{id}/verify": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Mark a document verified",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Document"
+                        }
+                    }
+                }
+            }
+        },
+        "/drivers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "List drivers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "active or inactive",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name, phone or employee number",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success, data []models.Driver, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "Add a driver",
+                "parameters": [
+                    {
+                        "description": "Driver",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.DriverInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Driver"
+                        }
+                    }
+                }
+            }
+        },
+        "/drivers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "Get a driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Driver id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Driver"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "Edit a driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Driver id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.DriverInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Driver"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "Retire a driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Driver id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/trackers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "List devices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gps or dashcam",
+                        "name": "kind",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only fitted (true) or only spare (false)",
+                        "name": "fitted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Devices currently on this vehicle",
+                        "name": "vehicleId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Device id prefix",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success, data []services.TrackerView, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Register a device",
+                "parameters": [
+                    {
+                        "description": "Device; kind gps (deviceId = 15-digit IMEI) or dashcam",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/trackers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Get a device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "kind and deviceId are immutable (409).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Edit a device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Refused (409) while fitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Retire a device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/trackers/{id}/assignments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "A device's fitting history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerAssignment"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/trackers/{id}/fit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Closes the device's previous fitting and the vehicle's previous device of the same kind, opens the new one, and for GPS sets the vehicle's trackerId — one operation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Fit a device to a vehicle",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Vehicle and fitting details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.FitInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerAssignment"
+                        }
+                    }
+                }
+            }
+        },
+        "/trackers/{id}/unfit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trackers"
+                ],
+                "summary": "Unfit a device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "unfittedAt, default now",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.UnfitInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/trucks": {
             "get": {
                 "security": [
@@ -417,6 +1146,521 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicle-groups": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "List vehicle groups",
+                "responses": {
+                    "200": {
+                        "description": "success, data []services.GroupView, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Create a vehicle group",
+                "parameters": [
+                    {
+                        "description": "Group",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView"
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicle-groups/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Edit a vehicle group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Delete a vehicle group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicle-groups/{id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Vehicles in a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success, data []services.VehicleView, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Replace a group's members",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The complete membership",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.membersRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Add a vehicle to a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Vehicle",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.memberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicle-groups/{id}/members/{vehicleId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicle-groups"
+                ],
+                "summary": "Remove a vehicle from a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Vehicle id",
+                        "name": "vehicleId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicles"
+                ],
+                "summary": "List vehicles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only vehicles free for assignment",
+                        "name": "isAvailable",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Members of this vehicle group",
+                        "name": "groupId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plate or chassis prefix",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success, data []services.VehicleView, meta",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicles"
+                ],
+                "summary": "Add a vehicle",
+                "parameters": [
+                    {
+                        "description": "Vehicle",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView"
+                        }
+                    }
+                }
+            }
+        },
+        "/vehicles/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicles"
+                ],
+                "summary": "Get a vehicle",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Vehicle id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicles"
+                ],
+                "summary": "Edit a vehicle",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Vehicle id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields; currentDriverId ” releases the driver",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Refused (409) while a device is fitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vehicles"
+                ],
+                "summary": "Retire a vehicle",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Vehicle id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/internal_handlers.errorBody"
                         }
@@ -651,6 +1895,106 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_com_karlo_masterdata-service_internal_models.Document": {
+            "type": "object",
+            "properties": {
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "docType": {
+                    "type": "string"
+                },
+                "driverId": {
+                    "type": "string"
+                },
+                "expiresOn": {
+                    "type": "string"
+                },
+                "fileKey": {
+                    "description": "The object-store key, never a URL: a signed URL expires, so a stored one\nrots. The key is resolved to a fresh URL when someone asks to see it.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isVerified": {
+                    "type": "boolean"
+                },
+                "issuedOn": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "vehicleId": {
+                    "description": "Exactly one owner: a vehicle (STNK, KIR, insurance) or a driver (SIM,\nKTP, medical). VehicleID was the only owner once, so it stays a plain\nstring; empty means \"not a vehicle document\".",
+                    "type": "string"
+                },
+                "verifiedByUserId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_models.Driver": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "employeeNo": {
+                    "type": "string"
+                },
+                "fullName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "licenseClass": {
+                    "type": "string"
+                },
+                "licenseExpiry": {
+                    "description": "LicenseExpiry is a date; stored at UTC midnight, no time is meaningful.",
+                    "type": "string"
+                },
+                "licenseNo": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is active or inactive. Retirement is Deleted, like everywhere.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "description": "UserID is the auth user when this person has a login. Absent — not\nnull — when nobody has looked: an import cannot assert there is no\naccount, only that it did not link one.",
+                    "type": "string"
+                }
+            }
+        },
         "github_com_karlo_masterdata-service_internal_models.GeoPoint": {
             "type": "object",
             "properties": {
@@ -764,6 +2108,81 @@ const docTemplate = `{
                 "SiteOther"
             ]
         },
+        "github_com_karlo_masterdata-service_internal_models.TrackerAssignment": {
+            "type": "object",
+            "properties": {
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "deviceId": {
+                    "type": "string"
+                },
+                "fittedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imei": {
+                    "type": "string"
+                },
+                "installNotes": {
+                    "type": "string"
+                },
+                "installPhotoKey": {
+                    "description": "Proof the installation actually happened.\n\nFitting is done in a yard, often by a subcontractor, and \"was this really\ninstalled\" is the first question when a device never reports. A photo\ntaken at the time answers it. An object-store key, never a URL — a signed\nURL expires, so a stored one rots.",
+                    "type": "string"
+                },
+                "installedByUserId": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "What was fitted, copied from the device so the history outlives the\ndevice document. Kind and DeviceID always; IMEI for GPS devices only,\nbecause telemetry is keyed on it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerKind"
+                        }
+                    ]
+                },
+                "trackerId": {
+                    "description": "Nil once the device document is deleted. The copied IMEI below is what\nstill identifies it — which is the whole reason the IMEI is duplicated\nhere rather than joined from the tracker.",
+                    "type": "string"
+                },
+                "unfittedAt": {
+                    "type": "string"
+                },
+                "vehicleId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_models.TrackerKind": {
+            "type": "string",
+            "enum": [
+                "gps",
+                "dashcam"
+            ],
+            "x-enum-varnames": [
+                "TrackerGPS",
+                "TrackerDashcam"
+            ]
+        },
+        "github_com_karlo_masterdata-service_internal_models.TrackerOwner": {
+            "type": "string",
+            "enum": [
+                "karlo",
+                "customer",
+                "vendor"
+            ],
+            "x-enum-varnames": [
+                "OwnerKarlo",
+                "OwnerCustomer",
+                "OwnerVendor"
+            ]
+        },
         "github_com_karlo_masterdata-service_internal_models.UnitType": {
             "type": "string",
             "enum": [
@@ -798,6 +2217,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "createdAt": {
+                    "type": "string"
+                },
+                "currentDriverId": {
+                    "description": "CurrentDriverID is the drivers document; CurrentDriverUserID is that\ndriver's auth user, copied from the document when they have a login.\nBoth are written by the same assignment path; the second stays because\nbusiness-service's dispatch reads driver ids as auth users and a\ndriver with no login must contribute nothing there.",
                     "type": "string"
                 },
                 "currentDriverUserId": {
@@ -857,6 +2280,436 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_karlo_masterdata-service_internal_services.DocumentInput": {
+            "type": "object",
+            "properties": {
+                "docType": {
+                    "type": "string"
+                },
+                "driverId": {
+                    "type": "string"
+                },
+                "expiresOn": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "fileKey": {
+                    "type": "string"
+                },
+                "issuedOn": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "vehicleId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.DriverInput": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "employeeNo": {
+                    "type": "string"
+                },
+                "fullName": {
+                    "type": "string"
+                },
+                "licenseClass": {
+                    "type": "string"
+                },
+                "licenseExpiry": {
+                    "description": "YYYY-MM-DD; \"\" clears",
+                    "type": "string"
+                },
+                "licenseNo": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.DriverRef": {
+            "type": "object",
+            "properties": {
+                "fullName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.FitInput": {
+            "type": "object",
+            "properties": {
+                "fittedAt": {
+                    "type": "string"
+                },
+                "installNotes": {
+                    "type": "string"
+                },
+                "installPhotoKey": {
+                    "type": "string"
+                },
+                "installedByUserId": {
+                    "type": "string"
+                },
+                "vehicleId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.GroupInput": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "picUserIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.GroupView": {
+            "type": "object",
+            "properties": {
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "memberCount": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "picUserIds": {
+                    "description": "Who to tell about this group. The point of a group is usually that\nsomebody is responsible for it.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.TrackerInput": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "deviceId": {
+                    "type": "string"
+                },
+                "iccid": {
+                    "type": "string"
+                },
+                "imei": {
+                    "description": "accepted as an alias of deviceId for gps",
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "modelId": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "ownerName": {
+                    "type": "string"
+                },
+                "simProvider": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.TrackerRef": {
+            "type": "object",
+            "properties": {
+                "deviceId": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.TrackerView": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "companyId": {
+                    "description": "Where the device is DEPLOYED. Nil while it sits in Karlo's stock, which\nis why this is optional when nearly every other CompanyID is not.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currentVehicleId": {
+                    "type": "string"
+                },
+                "deviceId": {
+                    "description": "DeviceID is the device's identity within its kind — the IMEI for a\nGPS tracker, the vendor's device id for a dashcam — and it is GLOBAL:\ntwo companies cannot hold the same physical device, and a duplicate\nmeans one vehicle's telemetry appearing on another's map.",
+                    "type": "string"
+                },
+                "fittedAt": {
+                    "type": "string"
+                },
+                "iccid": {
+                    "description": "The SIM card itself. Survives the number changing, which a phone number\ndoes not — a number is reassigned, an ICCID identifies the card.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imei": {
+                    "description": "IMEI is kept for GPS trackers, equal to DeviceID, because every\ntelemetry reading and assignment is keyed on it. Empty for a dashcam.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is what the device is: a GPS tracker or a dashcam. One register,\nbecause both are a physical device fitted to a vehicle with a fitting\nhistory, and two registers is how one vehicle ends up with a device\nin each that nobody can see together.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerKind"
+                        }
+                    ]
+                },
+                "modelId": {
+                    "description": "The model, always by reference. A free-text name sat beside this for\ndevices not yet catalogued, and it was the wrong answer: two spellings of\none model cannot be compared, so \"every device of this model\" — the\nquestion asked when a firmware fault appears — would miss half of them.",
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Who OWNS it — a different question from where it is, and the two differ\nconstantly. Without the distinction nobody can answer \"which of our units\nare out with customers\" or \"who do we chase when this one fails\".",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerOwner"
+                        }
+                    ]
+                },
+                "ownerName": {
+                    "type": "string"
+                },
+                "simProvider": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.UnfitInput": {
+            "type": "object",
+            "properties": {
+                "unfittedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.VehicleInput": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "brandId": {
+                    "type": "string"
+                },
+                "chassisNumber": {
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "currentDriverId": {
+                    "type": "string"
+                },
+                "engineNumber": {
+                    "type": "string"
+                },
+                "fuelRatioKmpl": {
+                    "type": "number"
+                },
+                "fuelTankLiters": {
+                    "type": "number"
+                },
+                "hourmeterHours": {
+                    "type": "number"
+                },
+                "isAvailable": {
+                    "type": "boolean"
+                },
+                "licensePlate": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "odometerKm": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "truckBodyId": {
+                    "type": "string"
+                },
+                "truckHeadId": {
+                    "type": "string"
+                },
+                "unitType": {
+                    "type": "string"
+                },
+                "unitYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_karlo_masterdata-service_internal_services.VehicleView": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "brandId": {
+                    "type": "string"
+                },
+                "chassisNumber": {
+                    "description": "The numbers that identify the PHYSICAL vehicle rather than its\nregistration. A plate is reissued when a vehicle is sold; these are not,\nwhich is why the chassis number is unique everywhere and the plate only\nwithin a company.",
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "companyId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currentDriverId": {
+                    "description": "CurrentDriverID is the drivers document; CurrentDriverUserID is that\ndriver's auth user, copied from the document when they have a login.\nBoth are written by the same assignment path; the second stays because\nbusiness-service's dispatch reads driver ids as auth users and a\ndriver with no login must contribute nothing there.",
+                    "type": "string"
+                },
+                "currentDriverUserId": {
+                    "type": "string"
+                },
+                "driver": {
+                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.DriverRef"
+                },
+                "engineNumber": {
+                    "type": "string"
+                },
+                "fuelRatioKmpl": {
+                    "type": "number"
+                },
+                "fuelTankLiters": {
+                    "type": "number"
+                },
+                "hourmeterHours": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isAvailable": {
+                    "description": "TMS asks this before assigning a load; FMS does not care.",
+                    "type": "boolean"
+                },
+                "licensePlate": {
+                    "description": "What everyone calls the truck, exactly as the operator typed it.",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "odometerKm": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tracker": {
+                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerRef"
+                },
+                "trackerId": {
+                    "description": "TrackerID is a COPY of the live tracker assignment, kept so \"which device\nis on this vehicle\" does not need a query over history.\n\nNothing in MongoDB keeps it in step. In PostgreSQL a trigger did; here\nevery writer must, and a writer that forgets shows a device on the wrong\ntruck. Use the tracker repository's fitting methods rather than setting\nthis directly.",
+                    "type": "string"
+                },
+                "truckBodyId": {
+                    "type": "string"
+                },
+                "truckHeadId": {
+                    "description": "A head names a head type; a body or a rigid names a body type. Both\nfields rather than one, because a rigid truck has a body and no separate\nhead — forcing them through one field would mean guessing which list an\nid belongs to.",
+                    "type": "string"
+                },
+                "unitType": {
+                    "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.UnitType"
+                },
+                "unitYear": {
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handlers.errorBody": {
             "type": "object",
             "properties": {
@@ -883,6 +2736,28 @@ const docTemplate = `{
                 "writable": {
                     "description": "Writable is false for a catalogue that can be read and not edited. Sent\nso the UI can omit the add button rather than offering one that fails.",
                     "type": "boolean"
+                }
+            }
+        },
+        "internal_handlers.memberRequest": {
+            "type": "object",
+            "required": [
+                "vehicleId"
+            ],
+            "properties": {
+                "vehicleId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.membersRequest": {
+            "type": "object",
+            "properties": {
+                "vehicleIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

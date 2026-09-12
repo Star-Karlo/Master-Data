@@ -98,6 +98,7 @@ func run() error {
 		Remote:   remote,
 		Catalog:  handlers.NewCatalogHandler(catalogService),
 		Fleet:    handlers.NewFleetHandler(fleetService),
+		Registry: handlers.NewRegistryHandler(services.NewRegistryService(db)),
 	})
 
 	httpSrv := &http.Server{

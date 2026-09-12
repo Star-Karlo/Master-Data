@@ -1,5 +1,81 @@
 basePath: /api/v1
 definitions:
+  github_com_karlo_masterdata-service_internal_models.Document:
+    properties:
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      docType:
+        type: string
+      driverId:
+        type: string
+      expiresOn:
+        type: string
+      fileKey:
+        description: |-
+          The object-store key, never a URL: a signed URL expires, so a stored one
+          rots. The key is resolved to a fresh URL when someone asks to see it.
+        type: string
+      id:
+        type: string
+      isVerified:
+        type: boolean
+      issuedOn:
+        type: string
+      notes:
+        type: string
+      number:
+        type: string
+      updatedAt:
+        type: string
+      vehicleId:
+        description: |-
+          Exactly one owner: a vehicle (STNK, KIR, insurance) or a driver (SIM,
+          KTP, medical). VehicleID was the only owner once, so it stays a plain
+          string; empty means "not a vehicle document".
+        type: string
+      verifiedByUserId:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_models.Driver:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      employeeNo:
+        type: string
+      fullName:
+        type: string
+      id:
+        type: string
+      licenseClass:
+        type: string
+      licenseExpiry:
+        description: LicenseExpiry is a date; stored at UTC midnight, no time is meaningful.
+        type: string
+      licenseNo:
+        type: string
+      notes:
+        type: string
+      phone:
+        type: string
+      status:
+        description: Status is active or inactive. Retirement is Deleted, like everywhere.
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        description: |-
+          UserID is the auth user when this person has a login. Absent — not
+          null — when nobody has looked: an import cannot assert there is no
+          account, only that it did not link one.
+        type: string
+    type: object
   github_com_karlo_masterdata-service_internal_models.GeoPoint:
     properties:
       coordinates:
@@ -95,6 +171,69 @@ definitions:
     - SitePort
     - SiteCustomer
     - SiteOther
+  github_com_karlo_masterdata-service_internal_models.TrackerAssignment:
+    properties:
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      deviceId:
+        type: string
+      fittedAt:
+        type: string
+      id:
+        type: string
+      imei:
+        type: string
+      installNotes:
+        type: string
+      installPhotoKey:
+        description: |-
+          Proof the installation actually happened.
+
+          Fitting is done in a yard, often by a subcontractor, and "was this really
+          installed" is the first question when a device never reports. A photo
+          taken at the time answers it. An object-store key, never a URL — a signed
+          URL expires, so a stored one rots.
+        type: string
+      installedByUserId:
+        type: string
+      kind:
+        allOf:
+        - $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerKind'
+        description: |-
+          What was fitted, copied from the device so the history outlives the
+          device document. Kind and DeviceID always; IMEI for GPS devices only,
+          because telemetry is keyed on it.
+      trackerId:
+        description: |-
+          Nil once the device document is deleted. The copied IMEI below is what
+          still identifies it — which is the whole reason the IMEI is duplicated
+          here rather than joined from the tracker.
+        type: string
+      unfittedAt:
+        type: string
+      vehicleId:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_models.TrackerKind:
+    enum:
+    - gps
+    - dashcam
+    type: string
+    x-enum-varnames:
+    - TrackerGPS
+    - TrackerDashcam
+  github_com_karlo_masterdata-service_internal_models.TrackerOwner:
+    enum:
+    - karlo
+    - customer
+    - vendor
+    type: string
+    x-enum-varnames:
+    - OwnerKarlo
+    - OwnerCustomer
+    - OwnerVendor
   github_com_karlo_masterdata-service_internal_models.UnitType:
     enum:
     - rigid
@@ -124,6 +263,14 @@ definitions:
       companyId:
         type: string
       createdAt:
+        type: string
+      currentDriverId:
+        description: |-
+          CurrentDriverID is the drivers document; CurrentDriverUserID is that
+          driver's auth user, copied from the document when they have a login.
+          Both are written by the same assignment path; the second stays because
+          business-service's dispatch reads driver ids as auth users and a
+          driver with no login must contribute nothing there.
         type: string
       currentDriverUserId:
         type: string
@@ -176,6 +323,337 @@ definitions:
       updatedAt:
         type: string
     type: object
+  github_com_karlo_masterdata-service_internal_services.DocumentInput:
+    properties:
+      docType:
+        type: string
+      driverId:
+        type: string
+      expiresOn:
+        description: YYYY-MM-DD
+        type: string
+      fileKey:
+        type: string
+      issuedOn:
+        description: YYYY-MM-DD
+        type: string
+      notes:
+        type: string
+      number:
+        type: string
+      vehicleId:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.DriverInput:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      employeeNo:
+        type: string
+      fullName:
+        type: string
+      licenseClass:
+        type: string
+      licenseExpiry:
+        description: YYYY-MM-DD; "" clears
+        type: string
+      licenseNo:
+        type: string
+      notes:
+        type: string
+      phone:
+        type: string
+      status:
+        type: string
+      userId:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.DriverRef:
+    properties:
+      fullName:
+        type: string
+      id:
+        type: string
+      phone:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.FitInput:
+    properties:
+      fittedAt:
+        type: string
+      installNotes:
+        type: string
+      installPhotoKey:
+        type: string
+      installedByUserId:
+        type: string
+      vehicleId:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.GroupInput:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      picUserIds:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_karlo_masterdata-service_internal_services.GroupView:
+    properties:
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      memberCount:
+        type: integer
+      name:
+        type: string
+      picUserIds:
+        description: |-
+          Who to tell about this group. The point of a group is usually that
+          somebody is responsible for it.
+        items:
+          type: string
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.TrackerInput:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      deviceId:
+        type: string
+      iccid:
+        type: string
+      imei:
+        description: accepted as an alias of deviceId for gps
+        type: string
+      kind:
+        type: string
+      modelId:
+        type: string
+      owner:
+        type: string
+      ownerName:
+        type: string
+      simProvider:
+        type: string
+      status:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.TrackerRef:
+    properties:
+      deviceId:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.TrackerView:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      companyId:
+        description: |-
+          Where the device is DEPLOYED. Nil while it sits in Karlo's stock, which
+          is why this is optional when nearly every other CompanyID is not.
+        type: string
+      createdAt:
+        type: string
+      currentVehicleId:
+        type: string
+      deviceId:
+        description: |-
+          DeviceID is the device's identity within its kind — the IMEI for a
+          GPS tracker, the vendor's device id for a dashcam — and it is GLOBAL:
+          two companies cannot hold the same physical device, and a duplicate
+          means one vehicle's telemetry appearing on another's map.
+        type: string
+      fittedAt:
+        type: string
+      iccid:
+        description: |-
+          The SIM card itself. Survives the number changing, which a phone number
+          does not — a number is reassigned, an ICCID identifies the card.
+        type: string
+      id:
+        type: string
+      imei:
+        description: |-
+          IMEI is kept for GPS trackers, equal to DeviceID, because every
+          telemetry reading and assignment is keyed on it. Empty for a dashcam.
+        type: string
+      kind:
+        allOf:
+        - $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerKind'
+        description: |-
+          Kind is what the device is: a GPS tracker or a dashcam. One register,
+          because both are a physical device fitted to a vehicle with a fitting
+          history, and two registers is how one vehicle ends up with a device
+          in each that nobody can see together.
+      modelId:
+        description: |-
+          The model, always by reference. A free-text name sat beside this for
+          devices not yet catalogued, and it was the wrong answer: two spellings of
+          one model cannot be compared, so "every device of this model" — the
+          question asked when a firmware fault appears — would miss half of them.
+        type: string
+      owner:
+        allOf:
+        - $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerOwner'
+        description: |-
+          Who OWNS it — a different question from where it is, and the two differ
+          constantly. Without the distinction nobody can answer "which of our units
+          are out with customers" or "who do we chase when this one fails".
+      ownerName:
+        type: string
+      simProvider:
+        type: string
+      status:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.UnfitInput:
+    properties:
+      unfittedAt:
+        type: string
+    type: object
+  github_com_karlo_masterdata-service_internal_services.VehicleInput:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      brandId:
+        type: string
+      chassisNumber:
+        type: string
+      color:
+        type: string
+      currentDriverId:
+        type: string
+      engineNumber:
+        type: string
+      fuelRatioKmpl:
+        type: number
+      fuelTankLiters:
+        type: number
+      hourmeterHours:
+        type: number
+      isAvailable:
+        type: boolean
+      licensePlate:
+        type: string
+      notes:
+        type: string
+      odometerKm:
+        type: number
+      status:
+        type: string
+      truckBodyId:
+        type: string
+      truckHeadId:
+        type: string
+      unitType:
+        type: string
+      unitYear:
+        type: integer
+    type: object
+  github_com_karlo_masterdata-service_internal_services.VehicleView:
+    properties:
+      attributes:
+        additionalProperties: true
+        type: object
+      brandId:
+        type: string
+      chassisNumber:
+        description: |-
+          The numbers that identify the PHYSICAL vehicle rather than its
+          registration. A plate is reissued when a vehicle is sold; these are not,
+          which is why the chassis number is unique everywhere and the plate only
+          within a company.
+        type: string
+      color:
+        type: string
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      currentDriverId:
+        description: |-
+          CurrentDriverID is the drivers document; CurrentDriverUserID is that
+          driver's auth user, copied from the document when they have a login.
+          Both are written by the same assignment path; the second stays because
+          business-service's dispatch reads driver ids as auth users and a
+          driver with no login must contribute nothing there.
+        type: string
+      currentDriverUserId:
+        type: string
+      driver:
+        $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.DriverRef'
+      engineNumber:
+        type: string
+      fuelRatioKmpl:
+        type: number
+      fuelTankLiters:
+        type: number
+      hourmeterHours:
+        type: number
+      id:
+        type: string
+      isAvailable:
+        description: TMS asks this before assigning a load; FMS does not care.
+        type: boolean
+      licensePlate:
+        description: What everyone calls the truck, exactly as the operator typed
+          it.
+        type: string
+      notes:
+        type: string
+      odometerKm:
+        type: number
+      status:
+        type: string
+      tracker:
+        $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerRef'
+      trackerId:
+        description: |-
+          TrackerID is a COPY of the live tracker assignment, kept so "which device
+          is on this vehicle" does not need a query over history.
+
+          Nothing in MongoDB keeps it in step. In PostgreSQL a trigger did; here
+          every writer must, and a writer that forgets shows a device on the wrong
+          truck. Use the tracker repository's fitting methods rather than setting
+          this directly.
+        type: string
+      truckBodyId:
+        type: string
+      truckHeadId:
+        description: |-
+          A head names a head type; a body or a rigid names a body type. Both
+          fields rather than one, because a rigid truck has a body and no separate
+          head — forcing them through one field would mean guessing which list an
+          id belongs to.
+        type: string
+      unitType:
+        $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.UnitType'
+      unitYear:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
   internal_handlers.errorBody:
     properties:
       message:
@@ -200,6 +678,20 @@ definitions:
           Writable is false for a catalogue that can be read and not edited. Sent
           so the UI can omit the add button rather than offering one that fails.
         type: boolean
+    type: object
+  internal_handlers.memberRequest:
+    properties:
+      vehicleId:
+        type: string
+    required:
+    - vehicleId
+    type: object
+  internal_handlers.membersRequest:
+    properties:
+      vehicleIds:
+        items:
+          type: string
+        type: array
     type: object
   internal_handlers.warehouseRequest:
     properties:
@@ -450,6 +942,463 @@ paths:
       summary: Edit a catalogue entry
       tags:
       - catalog
+  /documents:
+    get:
+      description: One of vehicleId or driverId is required unless expiringWithinDays
+        is set, which sweeps the company.
+      parameters:
+      - description: Owner vehicle
+        in: query
+        name: vehicleId
+        type: string
+      - description: Owner driver
+        in: query
+        name: driverId
+        type: string
+      - description: Only documents expiring within N days
+        in: query
+        name: expiringWithinDays
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []models.Document, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List documents
+      tags:
+      - documents
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Document; exactly one of vehicleId / driverId
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.DocumentInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Document'
+      security:
+      - BearerAuth: []
+      summary: Add a document
+      tags:
+      - documents
+  /documents/{id}:
+    delete:
+      parameters:
+      - description: Document id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a document
+      tags:
+      - documents
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Document id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changed fields; owner cannot change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.DocumentInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Document'
+      security:
+      - BearerAuth: []
+      summary: Edit a document
+      tags:
+      - documents
+  /documents/{id}/verify:
+    post:
+      parameters:
+      - description: Document id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Document'
+      security:
+      - BearerAuth: []
+      summary: Mark a document verified
+      tags:
+      - documents
+  /drivers:
+    get:
+      parameters:
+      - description: active or inactive
+        in: query
+        name: status
+        type: string
+      - description: Zero-based page
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page
+        in: query
+        name: pageSize
+        type: integer
+      - description: Name, phone or employee number
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []models.Driver, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List drivers
+      tags:
+      - drivers
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Driver
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.DriverInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Driver'
+      security:
+      - BearerAuth: []
+      summary: Add a driver
+      tags:
+      - drivers
+  /drivers/{id}:
+    delete:
+      parameters:
+      - description: Driver id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Retire a driver
+      tags:
+      - drivers
+    get:
+      parameters:
+      - description: Driver id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Driver'
+      security:
+      - BearerAuth: []
+      summary: Get a driver
+      tags:
+      - drivers
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Driver id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changed fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.DriverInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Driver'
+      security:
+      - BearerAuth: []
+      summary: Edit a driver
+      tags:
+      - drivers
+  /trackers:
+    get:
+      parameters:
+      - description: gps or dashcam
+        in: query
+        name: kind
+        type: string
+      - description: Only fitted (true) or only spare (false)
+        in: query
+        name: fitted
+        type: boolean
+      - description: Devices currently on this vehicle
+        in: query
+        name: vehicleId
+        type: string
+      - description: Zero-based page
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page
+        in: query
+        name: pageSize
+        type: integer
+      - description: Device id prefix
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []services.TrackerView, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List devices
+      tags:
+      - trackers
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Device; kind gps (deviceId = 15-digit IMEI) or dashcam
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_handlers.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Register a device
+      tags:
+      - trackers
+  /trackers/{id}:
+    delete:
+      description: Refused (409) while fitted.
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Retire a device
+      tags:
+      - trackers
+    get:
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView'
+      security:
+      - BearerAuth: []
+      summary: Get a device
+      tags:
+      - trackers
+    put:
+      consumes:
+      - application/json
+      description: kind and deviceId are immutable (409).
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changed fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.TrackerView'
+      security:
+      - BearerAuth: []
+      summary: Edit a device
+      tags:
+      - trackers
+  /trackers/{id}/assignments:
+    get:
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerAssignment'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: A device's fitting history
+      tags:
+      - trackers
+  /trackers/{id}/fit:
+    post:
+      consumes:
+      - application/json
+      description: Closes the device's previous fitting and the vehicle's previous
+        device of the same kind, opens the new one, and for GPS sets the vehicle's
+        trackerId — one operation.
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Vehicle and fitting details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.FitInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.TrackerAssignment'
+      security:
+      - BearerAuth: []
+      summary: Fit a device to a vehicle
+      tags:
+      - trackers
+  /trackers/{id}/unfit:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Device id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: unfittedAt, default now
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.UnfitInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unfit a device
+      tags:
+      - trackers
   /trucks:
     get:
       parameters:
@@ -514,6 +1463,328 @@ paths:
       summary: Get a truck
       tags:
       - fleet
+  /vehicle-groups:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []services.GroupView, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List vehicle groups
+      tags:
+      - vehicle-groups
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView'
+      security:
+      - BearerAuth: []
+      summary: Create a vehicle group
+      tags:
+      - vehicle-groups
+  /vehicle-groups/{id}:
+    delete:
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a vehicle group
+      tags:
+      - vehicle-groups
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changed fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView'
+      security:
+      - BearerAuth: []
+      summary: Edit a vehicle group
+      tags:
+      - vehicle-groups
+  /vehicle-groups/{id}/members:
+    get:
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []services.VehicleView, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Vehicles in a group
+      tags:
+      - vehicle-groups
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Vehicle
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.memberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add a vehicle to a group
+      tags:
+      - vehicle-groups
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The complete membership
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.membersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Replace a group's members
+      tags:
+      - vehicle-groups
+  /vehicle-groups/{id}/members/{vehicleId}:
+    delete:
+      parameters:
+      - description: Group id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Vehicle id
+        in: path
+        name: vehicleId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove a vehicle from a group
+      tags:
+      - vehicle-groups
+  /vehicles:
+    get:
+      parameters:
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Only vehicles free for assignment
+        in: query
+        name: isAvailable
+        type: boolean
+      - description: Members of this vehicle group
+        in: query
+        name: groupId
+        type: string
+      - description: Zero-based page
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page
+        in: query
+        name: pageSize
+        type: integer
+      - description: Plate or chassis prefix
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success, data []services.VehicleView, meta
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List vehicles
+      tags:
+      - vehicles
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Vehicle
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView'
+      security:
+      - BearerAuth: []
+      summary: Add a vehicle
+      tags:
+      - vehicles
+  /vehicles/{id}:
+    delete:
+      description: Refused (409) while a device is fitted.
+      parameters:
+      - description: Vehicle id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_handlers.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Retire a vehicle
+      tags:
+      - vehicles
+    get:
+      parameters:
+      - description: Vehicle id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView'
+      security:
+      - BearerAuth: []
+      summary: Get a vehicle
+      tags:
+      - vehicles
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Vehicle id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changed fields; currentDriverId ” releases the driver
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.VehicleView'
+      security:
+      - BearerAuth: []
+      summary: Edit a vehicle
+      tags:
+      - vehicles
   /warehouses:
     get:
       parameters:

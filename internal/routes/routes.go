@@ -35,8 +35,9 @@ type Deps struct {
 	Verifier *authctx.Verifier
 	Remote   authctx.RemoteValidator
 
-	Catalog *handlers.CatalogHandler
-	Fleet   *handlers.FleetHandler
+	Catalog  *handlers.CatalogHandler
+	Fleet    *handlers.FleetHandler
+	Registry *handlers.RegistryHandler
 }
 
 func Setup(d Deps) *gin.Engine {
@@ -90,6 +91,47 @@ func Setup(d Deps) *gin.Engine {
 	api.POST("/warehouses", authctx.RequireModule("warehouse.create"), d.Fleet.CreateWarehouse)
 	api.PUT("/warehouses/:id", authctx.RequireModule("warehouse.update"), d.Fleet.UpdateWarehouse)
 	api.DELETE("/warehouses/:id", authctx.RequireModule("warehouse.delete"), d.Fleet.DeleteWarehouse)
+
+	// The writable fleet register, shared by both products. Each route lists
+	// every product's spelling of the ability; any one lets the caller in.
+	any := authctx.RequireAnyOf
+	r := d.Registry
+
+	api.GET("/drivers", any("tms:masterData.read", "fms:drivers.view"), r.ListDrivers)
+	api.GET("/drivers/:id", any("tms:masterData.read", "fms:drivers.view"), r.GetDriver)
+	api.POST("/drivers", any("tms:masterData.create", "fms:drivers.edit"), r.CreateDriver)
+	api.PUT("/drivers/:id", any("tms:masterData.update", "fms:drivers.edit"), r.UpdateDriver)
+	api.DELETE("/drivers/:id", any("tms:masterData.delete", "fms:drivers.edit"), r.DeleteDriver)
+
+	api.GET("/vehicles", any("tms:truck.read", "fms:vehicles.view"), r.ListVehicles)
+	api.GET("/vehicles/:id", any("tms:truck.read", "fms:vehicles.view"), r.GetVehicle)
+	api.POST("/vehicles", any("tms:truck.create", "fms:vehicles.edit"), r.CreateVehicle)
+	api.PUT("/vehicles/:id", any("tms:truck.update", "fms:vehicles.edit"), r.UpdateVehicle)
+	api.DELETE("/vehicles/:id", any("tms:truck.delete", "fms:vehicles.edit"), r.DeleteVehicle)
+
+	api.GET("/trackers", any("tms:masterData.read", "fms:vehicles.view", "fms:dashcams.manage"), r.ListTrackers)
+	api.GET("/trackers/:id", any("tms:masterData.read", "fms:vehicles.view", "fms:dashcams.manage"), r.GetTracker)
+	api.GET("/trackers/:id/assignments", any("tms:masterData.read", "fms:vehicles.view", "fms:dashcams.manage"), r.Assignments)
+	api.POST("/trackers", any("tms:masterData.create", "fms:vehicles.edit", "fms:dashcams.manage"), r.CreateTracker)
+	api.PUT("/trackers/:id", any("tms:masterData.update", "fms:vehicles.edit", "fms:dashcams.manage"), r.UpdateTracker)
+	api.DELETE("/trackers/:id", any("tms:masterData.delete", "fms:vehicles.edit", "fms:dashcams.manage"), r.DeleteTracker)
+	api.POST("/trackers/:id/fit", any("tms:masterData.update", "fms:vehicles.edit", "fms:dashcams.manage"), r.Fit)
+	api.POST("/trackers/:id/unfit", any("tms:masterData.update", "fms:vehicles.edit", "fms:dashcams.manage"), r.Unfit)
+
+	api.GET("/vehicle-groups", any("tms:truck.read", "fms:vehicles.view"), r.ListGroups)
+	api.POST("/vehicle-groups", any("tms:truck.create", "fms:vehicles.edit"), r.CreateGroup)
+	api.PUT("/vehicle-groups/:id", any("tms:truck.update", "fms:vehicles.edit"), r.UpdateGroup)
+	api.DELETE("/vehicle-groups/:id", any("tms:truck.delete", "fms:vehicles.edit"), r.DeleteGroup)
+	api.GET("/vehicle-groups/:id/members", any("tms:truck.read", "fms:vehicles.view"), r.GroupMembers)
+	api.PUT("/vehicle-groups/:id/members", any("tms:truck.update", "fms:vehicles.edit"), r.SetGroupMembers)
+	api.POST("/vehicle-groups/:id/members", any("tms:truck.update", "fms:vehicles.edit"), r.AddGroupMember)
+	api.DELETE("/vehicle-groups/:id/members/:vehicleId", any("tms:truck.update", "fms:vehicles.edit"), r.RemoveGroupMember)
+
+	api.GET("/documents", any("tms:truck.read", "fms:vehicles.view", "fms:drivers.view"), r.ListDocuments)
+	api.POST("/documents", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.CreateDocument)
+	api.PUT("/documents/:id", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.UpdateDocument)
+	api.DELETE("/documents/:id", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.DeleteDocument)
+	api.POST("/documents/:id/verify", any("tms:masterData.update", "fms:vehicles.edit"), r.VerifyDocument)
 
 	return router
 }

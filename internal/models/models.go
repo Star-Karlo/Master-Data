@@ -60,6 +60,14 @@ const (
 // TrackerOwner says who owns a device, which is a different question from where
 // it is deployed — and the two differ constantly, because Karlo lends devices
 // and a customer may bring their own.
+// TrackerKind is what kind of device a trackers row is.
+type TrackerKind string
+
+const (
+	TrackerGPS     TrackerKind = "gps"
+	TrackerDashcam TrackerKind = "dashcam"
+)
+
 type TrackerOwner string
 
 const (
@@ -427,7 +435,13 @@ type Vehicle struct {
 	// every writer must, and a writer that forgets shows a device on the wrong
 	// truck. Use the tracker repository's fitting methods rather than setting
 	// this directly.
-	TrackerID           *string `bson:"trackerId" json:"trackerId,omitempty"`
+	TrackerID *string `bson:"trackerId" json:"trackerId,omitempty"`
+	// CurrentDriverID is the drivers document; CurrentDriverUserID is that
+	// driver's auth user, copied from the document when they have a login.
+	// Both are written by the same assignment path; the second stays because
+	// business-service's dispatch reads driver ids as auth users and a
+	// driver with no login must contribute nothing there.
+	CurrentDriverID     *string `bson:"currentDriverId" json:"currentDriverId,omitempty"`
 	CurrentDriverUserID *string `bson:"currentDriverUserId" json:"currentDriverUserId,omitempty"`
 
 	Status string `bson:"status" json:"status"`
@@ -521,11 +535,78 @@ func (g *VehicleGroup) BeforeWrite() {
 // Company-scoped with no shared variant, unlike a cargo type or a truck body:
 // one company's customer list is its commercial relationships, and must never
 // appear in another company's pickers.
+// Driver is a person who drives, as master data: a name, a phone number and
+// a licence. Not an identity — most drivers never sign in — but linked to
+// one through UserID when they do, so the TMS driver app and the FMS
+// scorecard describe the same person. FMS's employees and TMS's drivers are
+// one register here.
+type Driver struct {
+	Base      `bson:",inline"`
+	CompanyID string `bson:"companyId" json:"companyId"`
+
+	FullName       string  `bson:"fullName" json:"fullName"`
+	NameNormalised string  `bson:"nameNormalised" json:"-"`
+	Phone          *string `bson:"phone" json:"phone,omitempty"`
+	// PhoneNormalised is digits only, for the uniqueness index.
+	PhoneNormalised *string `bson:"phoneNormalised" json:"-"`
+
+	EmployeeNo *string `bson:"employeeNo" json:"employeeNo,omitempty"`
+
+	LicenseNo    *string `bson:"licenseNo" json:"licenseNo,omitempty"`
+	LicenseClass *string `bson:"licenseClass" json:"licenseClass,omitempty"`
+	// LicenseExpiry is a date; stored at UTC midnight, no time is meaningful.
+	LicenseExpiry *time.Time `bson:"licenseExpiry" json:"licenseExpiry,omitempty"`
+
+	// Status is active or inactive. Retirement is Deleted, like everywhere.
+	Status string `bson:"status" json:"status"`
+
+	// UserID is the auth user when this person has a login. Absent — not
+	// null — when nobody has looked: an import cannot assert there is no
+	// account, only that it did not link one.
+	UserID *string `bson:"userId,omitempty" json:"userId,omitempty"`
+
+	Notes      *string                `bson:"notes" json:"notes,omitempty"`
+	Attributes map[string]interface{} `bson:"attributes,omitempty" json:"attributes,omitempty"`
+}
+
+func (Driver) CollectionName() string { return config.Collection("drivers") }
+
+func (d *Driver) BeforeWrite() {
+	d.FullName = strings.TrimSpace(d.FullName)
+	d.NameNormalised = normalise.Name(d.FullName)
+	d.Phone = normalise.Optional(strings.TrimSpace, d.Phone)
+	d.PhoneNormalised = normalise.Optional(normalise.IMEI, d.Phone) // digits only
+	d.EmployeeNo = normalise.Optional(strings.TrimSpace, d.EmployeeNo)
+	d.LicenseNo = normalise.Optional(normalise.Serial, d.LicenseNo)
+	d.LicenseClass = normalise.Optional(strings.TrimSpace, d.LicenseClass)
+	if d.LicenseExpiry != nil {
+		t := d.LicenseExpiry.UTC()
+		day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+		d.LicenseExpiry = &day
+	}
+	if d.Status == "" {
+		d.Status = "active"
+	}
+	if d.Attributes == nil {
+		d.Attributes = map[string]interface{}{}
+	}
+}
+
+func (d *Driver) Validate() error {
+	if d.FullName == "" {
+		return ErrDriverNameRequired
+	}
+	if d.Status != "active" && d.Status != "inactive" {
+		return ErrDriverStatus
+	}
+	return nil
+}
+
 type Customer struct {
 	Base           `bson:",inline"`
-	CompanyID      string  `bson:"companyId" json:"companyId"`
-	Name           string  `bson:"name" json:"name"`
-	NameNormalised string  `bson:"nameNormalised" json:"-"`
+	CompanyID      string `bson:"companyId" json:"companyId"`
+	Name           string `bson:"name" json:"name"`
+	NameNormalised string `bson:"nameNormalised" json:"-"`
 	// The customer's own reference for itself, printed on documents.
 	Code         *string `bson:"code" json:"code,omitempty"`
 	NPWP         *string `bson:"npwp" json:"npwp,omitempty"`
@@ -577,6 +658,9 @@ type TrackerModel struct {
 	ID     primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Vendor string             `bson:"vendor" json:"vendor"`
 	Model  string             `bson:"model" json:"model"`
+	// Kind says which register entries of this model belong to; gps unless
+	// said otherwise, so every existing row keeps meaning what it did.
+	Kind TrackerKind `bson:"kind" json:"kind"`
 
 	// How it speaks, which is what the ingest service needs in order to decode
 	// it: codec8, gt06.
@@ -611,6 +695,9 @@ func (m *TrackerModel) Stamp(now time.Time, creating bool) {
 func (m *TrackerModel) BeforeWrite() {
 	m.Vendor = strings.TrimSpace(m.Vendor)
 	m.Model = strings.TrimSpace(m.Model)
+	if m.Kind == "" {
+		m.Kind = TrackerGPS
+	}
 	if !m.IsActive {
 		m.IsActive = true
 	}
@@ -630,10 +717,21 @@ type Tracker struct {
 	Owner     TrackerOwner `bson:"owner" json:"owner"`
 	OwnerName *string      `bson:"ownerName" json:"ownerName,omitempty"`
 
-	// The device's identity, and it is GLOBAL: two companies cannot hold the
-	// same physical device, and a duplicate means one vehicle's telemetry
-	// appearing on another's map.
-	IMEI string `bson:"imei" json:"imei"`
+	// Kind is what the device is: a GPS tracker or a dashcam. One register,
+	// because both are a physical device fitted to a vehicle with a fitting
+	// history, and two registers is how one vehicle ends up with a device
+	// in each that nobody can see together.
+	Kind TrackerKind `bson:"kind" json:"kind"`
+
+	// DeviceID is the device's identity within its kind — the IMEI for a
+	// GPS tracker, the vendor's device id for a dashcam — and it is GLOBAL:
+	// two companies cannot hold the same physical device, and a duplicate
+	// means one vehicle's telemetry appearing on another's map.
+	DeviceID string `bson:"deviceId" json:"deviceId"`
+
+	// IMEI is kept for GPS trackers, equal to DeviceID, because every
+	// telemetry reading and assignment is keyed on it. Empty for a dashcam.
+	IMEI string `bson:"imei,omitempty" json:"imei,omitempty"`
 
 	// The SIM card itself. Survives the number changing, which a phone number
 	// does not — a number is reassigned, an ICCID identifies the card.
@@ -653,7 +751,21 @@ type Tracker struct {
 func (Tracker) CollectionName() string { return config.Collection("trackers") }
 
 func (t *Tracker) BeforeWrite() {
-	t.IMEI = normalise.IMEI(t.IMEI)
+	if t.Kind == "" {
+		t.Kind = TrackerGPS
+	}
+	switch t.Kind {
+	case TrackerGPS:
+		// Either field may have been supplied; they are the same number.
+		if t.DeviceID == "" {
+			t.DeviceID = t.IMEI
+		}
+		t.DeviceID = normalise.IMEI(t.DeviceID)
+		t.IMEI = t.DeviceID
+	default:
+		t.DeviceID = strings.TrimSpace(t.DeviceID)
+		t.IMEI = ""
+	}
 	t.ICCID = normalise.Optional(normalise.ICCID, t.ICCID)
 	if t.Owner == "" {
 		t.Owner = OwnerKarlo
@@ -758,7 +870,12 @@ type TrackerAssignment struct {
 	// here rather than joined from the tracker.
 	TrackerID *string `bson:"trackerId" json:"trackerId,omitempty"`
 	VehicleID string  `bson:"vehicleId" json:"vehicleId"`
-	IMEI      string  `bson:"imei" json:"imei"`
+	// What was fitted, copied from the device so the history outlives the
+	// device document. Kind and DeviceID always; IMEI for GPS devices only,
+	// because telemetry is keyed on it.
+	Kind     TrackerKind `bson:"kind" json:"kind"`
+	DeviceID string      `bson:"deviceId" json:"deviceId"`
+	IMEI     string      `bson:"imei,omitempty" json:"imei,omitempty"`
 
 	FittedAt   time.Time  `bson:"fittedAt" json:"fittedAt"`
 	UnfittedAt *time.Time `bson:"unfittedAt" json:"unfittedAt,omitempty"`
@@ -780,7 +897,20 @@ func (TrackerAssignment) CollectionName() string {
 	return config.Collection("tracker_assignments")
 }
 
-func (a *TrackerAssignment) BeforeWrite() { a.IMEI = normalise.IMEI(a.IMEI) }
+func (a *TrackerAssignment) BeforeWrite() {
+	if a.Kind == "" {
+		a.Kind = TrackerGPS
+	}
+	if a.Kind == TrackerGPS {
+		if a.DeviceID == "" {
+			a.DeviceID = a.IMEI
+		}
+		a.DeviceID = normalise.IMEI(a.DeviceID)
+		a.IMEI = a.DeviceID
+	} else {
+		a.IMEI = ""
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Sites and documents
@@ -891,8 +1021,11 @@ type Document struct {
 
 	CompanyID string `bson:"companyId" json:"companyId"`
 
-	// The vehicle this belongs to.
-	VehicleID string `bson:"vehicleId" json:"vehicleId"`
+	// Exactly one owner: a vehicle (STNK, KIR, insurance) or a driver (SIM,
+	// KTP, medical). VehicleID was the only owner once, so it stays a plain
+	// string; empty means "not a vehicle document".
+	VehicleID string  `bson:"vehicleId,omitempty" json:"vehicleId,omitempty"`
+	DriverID  *string `bson:"driverId,omitempty" json:"driverId,omitempty"`
 
 	DocType string  `bson:"docType" json:"docType"`
 	Number  *string `bson:"number" json:"number,omitempty"`
@@ -910,3 +1043,8 @@ type Document struct {
 }
 
 func (Document) CollectionName() string { return config.Collection("documents") }
+
+func (d *Document) BeforeWrite() {
+	d.DocType = strings.ToUpper(strings.TrimSpace(d.DocType))
+	d.Number = normalise.Optional(strings.TrimSpace, d.Number)
+}

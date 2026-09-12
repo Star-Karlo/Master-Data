@@ -415,6 +415,7 @@ ensure("vehicle_group_members", {
       companyId: uuid,
       groupId: localRef,
       vehicleId: localRef,
+      driverId: localRef,
       addedByUserId: { bsonType: ["string", "null"] },
       createdAt: ts,
     },
@@ -566,6 +567,9 @@ ensure("tracker_models", {
     bsonType: "object",
     required: ["vendor", "model", "createdAt"],
     properties: {
+      // Which register entries of this model belong to. gps unless said
+      // otherwise, so every existing row keeps meaning what it did.
+      kind: { enum: ["gps", "dashcam"] },
       vendor: { bsonType: "string", minLength: 1 },
       model: { bsonType: "string", minLength: 1 },
       // How it speaks: codec8, gt06. RECORDED, not acted on — the telemetry
@@ -584,8 +588,18 @@ ensure("tracker_models", {
 ensure("trackers", {
   $jsonSchema: {
     bsonType: "object",
-    required: ["imei", "owner", "createdAt"],
+    required: ["kind", "deviceId", "owner", "createdAt"],
     properties: {
+      // What the device is. One register for GPS trackers and dashcams,
+      // because both are a physical device fitted to a vehicle with a fitting
+      // history, and two registers is how one vehicle ends up with a device
+      // in each that nobody can see together.
+      kind: { enum: ["gps", "dashcam"] },
+
+      // The device's identity within its kind: the IMEI for gps, the
+      // vendor's device id for a dashcam. Unique per kind.
+      deviceId: { bsonType: "string", minLength: 1 },
+
       // Where the device is DEPLOYED. null while it sits in stock, which is why
       // this is optional when nearly every other companyId is not.
       companyId: { bsonType: ["string", "null"] },
@@ -595,9 +609,12 @@ ensure("trackers", {
       owner: { enum: ["karlo", "customer", "vendor"] },
       ownerName: { bsonType: ["string", "null"] },
 
-      // The device's identity, and it is GLOBAL: two companies cannot hold the
-      // same physical device, and a duplicate means one vehicle's telemetry
-      // appearing on another's map.
+      // Kept for gps devices, equal to deviceId, because every telemetry
+      // reading and assignment is keyed on it. Absent for a dashcam.
+      // What was fitted, copied from the device so the history survives the
+      // device document being retired. kind + deviceId always; imei for gps.
+      kind: { enum: ["gps", "dashcam"] },
+      deviceId: { bsonType: "string", minLength: 1 },
       imei: { bsonType: "string", minLength: 1 },
 
       // The SIM card itself. Survives the number changing, which a phone
@@ -619,9 +636,12 @@ ensure("trackers", {
     },
   },
 }, [
-  { keys: { imei: 1 },
-    opts: { unique: true, name: "uq_tracker_imei",
+  { keys: { kind: 1, deviceId: 1 },
+    opts: { unique: true, name: "uq_tracker_device",
             partialFilterExpression: { deleted: false } } },
+  { keys: { imei: 1 },
+    opts: { unique: true, name: "uq_tracker_imei_gps",
+            partialFilterExpression: { imei: { $type: "string" }, deleted: false } } },
   { keys: { iccid: 1 },
     opts: { unique: true, name: "uq_tracker_iccid",
             partialFilterExpression: { iccid: { $type: "string" }, deleted: false } } },
@@ -701,7 +721,7 @@ ensure("tracker_sensors", {
 ensure("tracker_assignments", {
   $jsonSchema: {
     bsonType: "object",
-    required: ["companyId", "vehicleId", "imei", "fittedAt"],
+    required: ["companyId", "vehicleId", "kind", "deviceId", "fittedAt"],
     properties: {
       companyId: uuid,
       // Null once the device document is deleted. The copied imei below is what
@@ -837,7 +857,10 @@ ensure("site_links", {
 ensure("documents", {
   $jsonSchema: {
     bsonType: "object",
-    required: ["companyId", "vehicleId", "docType", "createdAt"],
+    // Exactly one owner: vehicleId or driverId. The validator cannot say
+    // "one of"; the service enforces it, and the two indexes below make
+    // each side answerable.
+    required: ["companyId", "docType", "createdAt"],
     properties: {
       companyId: uuid,
       // VEHICLES ONLY. A person's documents live in the authentication
@@ -860,6 +883,8 @@ ensure("documents", {
   },
 }, [
   { keys: { vehicleId: 1 }, opts: { name: "ix_documents_vehicle" } },
+  { keys: { driverId: 1 }, opts: { name: "ix_documents_driver",
+            partialFilterExpression: { driverId: { $type: "string" } } } },
   // The reminder query: everything expiring soon, across the whole company.
   { keys: { companyId: 1, expiresOn: 1 },
     opts: { name: "ix_documents_expiry",
@@ -867,6 +892,81 @@ ensure("documents", {
 ]);
 
 // The standard sensors, so a deployment starts with a usable list.
+
+// Drivers: the person register.
+//
+// A driver is a person who drives, as master data — a name, a phone number,
+// a licence. Not an identity: most drivers never sign in. When one does, the
+// auth user is recorded on userId, so the TMS driver app and the FMS
+// scorecard describe the same person. FMS's employees and TMS's drivers are
+// one register here, and a vehicle's currentDriverId points at it.
+ensure("drivers", {
+  $jsonSchema: {
+    bsonType: "object",
+    required: ["companyId", "fullName", "nameNormalised", "status", "createdAt"],
+    properties: {
+      companyId: tenantId,
+      fullName: { bsonType: "string", minLength: 1 },
+      nameNormalised: { bsonType: "string" },
+      phone: { bsonType: ["string", "null"] },
+      phoneNormalised: { bsonType: ["string", "null"] },
+      employeeNo: { bsonType: ["string", "null"] },
+      licenseNo: { bsonType: ["string", "null"] },
+      licenseClass: { bsonType: ["string", "null"] },
+      // A date. Stored at UTC midnight; no time is meaningful.
+      licenseExpiry: { bsonType: ["date", "null"] },
+      status: { enum: ["active", "inactive"] },
+      // The auth user, when this person has a login. ABSENT rather than
+      // null when nobody has looked: an import cannot assert there is no
+      // account, only that it did not link one.
+      userId: uuid,
+      notes: { bsonType: ["string", "null"] },
+      attributes: { bsonType: "object" },
+      deleted: { bsonType: "bool" },
+      createdAt: ts, updatedAt: ts,
+    },
+  },
+}, [
+  { keys: { companyId: 1, phoneNormalised: 1 },
+    opts: { unique: true, name: "uq_driver_phone",
+            partialFilterExpression: { phoneNormalised: { $type: "string" }, deleted: false } } },
+  { keys: { companyId: 1, employeeNo: 1 },
+    opts: { unique: true, name: "uq_driver_employee_no",
+            partialFilterExpression: { employeeNo: { $type: "string" }, deleted: false } } },
+  { keys: { companyId: 1, licenseNo: 1 },
+    opts: { unique: true, name: "uq_driver_license",
+            partialFilterExpression: { licenseNo: { $type: "string" }, deleted: false } } },
+  { keys: { userId: 1 },
+    opts: { unique: true, name: "uq_driver_user",
+            partialFilterExpression: { userId: { $type: "string" }, deleted: false } } },
+  { keys: { companyId: 1, status: 1, nameNormalised: 1 }, opts: { name: "ix_drivers_company_name" } },
+  { keys: { companyId: 1, licenseExpiry: 1 },
+    opts: { name: "ix_drivers_license_expiry",
+            partialFilterExpression: { licenseExpiry: { $type: "date" } } } },
+]);
+
+// One-off backfills for rows written before a field existed. Idempotent.
+//
+// Trackers registered before `kind` existed are GPS devices identified by
+// IMEI; dashcams did not exist here. Run BEFORE the trackers validator
+// above is enforced against them by any write.
+const assignmentsBackfilled = db.tracker_assignments.updateMany(
+  { kind: { $exists: false } },
+  [{ $set: { kind: "gps", deviceId: "$imei" } }]);
+if (assignmentsBackfilled.modifiedCount) print("  tracker_assignments: " + assignmentsBackfilled.modifiedCount + " rows given kind=gps, deviceId=imei");
+const backfilled = db.trackers.updateMany(
+  { kind: { $exists: false } },
+  [{ $set: { kind: "gps", deviceId: "$imei" } }]);
+if (backfilled.modifiedCount) print("  trackers: " + backfilled.modifiedCount + " rows given kind=gps, deviceId=imei");
+const modelsBackfilled = db.tracker_models.updateMany({ kind: { $exists: false } }, { $set: { kind: "gps" } });
+if (modelsBackfilled.modifiedCount) print("  tracker_models: " + modelsBackfilled.modifiedCount + " rows given kind=gps");
+
+// The dashcam vendor in use. A model per device type is added as devices are
+// registered; the vendor row exists so a dashcam can be catalogued at all.
+db.tracker_models.updateOne({ vendor: "Howen", model: "MDVR", kind: "dashcam" },
+  { $setOnInsert: { vendor: "Howen", model: "MDVR", kind: "dashcam", isActive: true, createdAt: new Date(), updatedAt: new Date() } },
+  { upsert: true });
+
 const SENSORS = [
   { code: "fuel",        name: "Fuel level",   unit: "L",   valueKind: "number",  description: "Tank level from a probe or the CAN bus" },
   { code: "temperature", name: "Temperature",  unit: "C",   valueKind: "number",  description: "Reefer or cargo temperature" },

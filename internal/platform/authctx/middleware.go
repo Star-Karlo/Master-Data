@@ -187,3 +187,39 @@ func Gin(c *gin.Context) (Principal, bool) {
 	p, ok := v.(Principal)
 	return p, ok
 }
+
+// RequireAnyOf aborts with 403 unless the caller holds at least one of the
+// given product-qualified permissions, e.g. "tms:truck.read", "fms:vehicles.view".
+//
+// Master data is shared by both products, and each names the same ability
+// differently. A route gated on one product's key would refuse the other
+// product's users outright — an FMS-only token has no tms access at all —
+// so a shared route lists every product's spelling and any one satisfies it.
+func RequireAnyOf(permissions ...string) gin.HandlerFunc {
+	type spec struct {
+		product Product
+		key     string
+	}
+	specs := make([]spec, 0, len(permissions))
+	for _, p := range permissions {
+		product, key, ok := strings.Cut(p, ":")
+		if !ok {
+			panic("authctx: RequireAnyOf needs product-qualified keys, got " + p)
+		}
+		specs = append(specs, spec{Product(product), key})
+	}
+	return func(c *gin.Context) {
+		p, ok := FromContext(c.Request.Context())
+		if !ok {
+			abort(c, "No token provided.")
+			return
+		}
+		for _, s := range specs {
+			if p.HasPermission(s.product, s.key) {
+				c.Next()
+				return
+			}
+		}
+		c.AbortWithStatusJSON(403, gin.H{"success": false, "message": "Access Denied"})
+	}
+}
