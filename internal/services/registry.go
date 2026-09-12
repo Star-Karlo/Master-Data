@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -965,7 +966,11 @@ func (s *RegistryService) transact(ctx context.Context, fn func(context.Context)
 		return nil, fn(sc)
 	})
 	if err != nil && isNoTransactions(err) {
+		slog.Debug("masterdata: transactions unsupported, running unwrapped")
 		return fn(ctx)
+	}
+	if err == nil {
+		slog.Debug("masterdata: fitting committed in a transaction")
 	}
 	return err
 }
