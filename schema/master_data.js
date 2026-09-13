@@ -27,6 +27,12 @@
 // Each of those is a real guarantee that moved from the database into code.
 // They are listed so the trade is written down rather than discovered.
 
+// Always the master data database, whatever database the connection string
+// or the shell prompt happens to name. A connection string with a query
+// string and no path lands in `test`, and a schema applied there is a
+// schema applied nowhere — silently.
+db = db.getSiblingDB("karlo_masterdata");
+
 const NORMALISE_NOTE =
   "Written by the application on every save. The unique index is on THIS field, " +
   "not the human one, so formatting cannot create a duplicate.";
