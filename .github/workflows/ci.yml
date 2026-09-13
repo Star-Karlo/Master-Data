@@ -30,10 +30,12 @@ jobs:
       - name: Unit tests
         run: go test ./... -race -cover
 
+      # Built with the same toolchain the code targets: a prebuilt binary
+      # compiled with an older Go refuses to load a newer go.mod.
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+          golangci-lint run --timeout 5m
 
   contracts:
     name: Proto contracts
@@ -110,6 +112,7 @@ jobs:
       # document, because clients trust it.
       - name: Regenerate and compare
         run: |
+          go mod download
           make swagger
           git diff --exit-code -- docs \
             || { echo "::error::OpenAPI document is stale. Run 'make swagger' and commit."; exit 1; }
