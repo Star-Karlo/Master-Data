@@ -598,3 +598,6 @@ type errorBody struct {
 	Success bool   `json:"success" example:"false"`
 	Message string `json:"message" example:"Entry not found."`
 }
+
+// Referenced only by the API document.
+var _ errorBody

@@ -380,7 +380,7 @@ func (s *RegistryService) ListVehicles(ctx context.Context, companyID string, p 
 	if err != nil {
 		return nil, 0, err
 	}
-	return s.resolveVehicles(ctx, companyID, vehicles), total, nil
+	return s.resolveVehicles(ctx, vehicles), total, nil
 }
 
 func (s *RegistryService) GetVehicle(ctx context.Context, companyID, id string) (*VehicleView, error) {
@@ -388,7 +388,7 @@ func (s *RegistryService) GetVehicle(ctx context.Context, companyID, id string) 
 	if err != nil {
 		return nil, err
 	}
-	views := s.resolveVehicles(ctx, companyID, []models.Vehicle{*v})
+	views := s.resolveVehicles(ctx, []models.Vehicle{*v})
 	return &views[0], nil
 }
 
@@ -400,7 +400,7 @@ func (s *RegistryService) findVehicle(ctx context.Context, companyID, id string)
 	return decodeOne[models.Vehicle](ctx, s.vehicles.Collection(), scoped(companyID, o))
 }
 
-func (s *RegistryService) resolveVehicles(ctx context.Context, companyID string, vehicles []models.Vehicle) []VehicleView {
+func (s *RegistryService) resolveVehicles(ctx context.Context, vehicles []models.Vehicle) []VehicleView {
 	trackerIDs := []primitive.ObjectID{}
 	driverIDs := []primitive.ObjectID{}
 	for _, v := range vehicles {
