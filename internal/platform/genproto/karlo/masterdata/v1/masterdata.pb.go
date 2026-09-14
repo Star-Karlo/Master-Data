@@ -1027,6 +1027,281 @@ func (x *GetTruckResponse) GetTruck() *Truck {
 	return nil
 }
 
+type ListDriversRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	CompanyId string                 `protobuf:"bytes,1,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
+	// page is zero-based; page_size defaults to 200 and is capped at 1000.
+	Page     int32 `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// updated_since, when set, returns only drivers changed at or after it.
+	UpdatedSince  *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_since,json=updatedSince,proto3" json:"updated_since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDriversRequest) Reset() {
+	*x = ListDriversRequest{}
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDriversRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDriversRequest) ProtoMessage() {}
+
+func (x *ListDriversRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDriversRequest.ProtoReflect.Descriptor instead.
+func (*ListDriversRequest) Descriptor() ([]byte, []int) {
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ListDriversRequest) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
+}
+
+func (x *ListDriversRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListDriversRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListDriversRequest) GetUpdatedSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedSince
+	}
+	return nil
+}
+
+type ListDriversResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Drivers       []*Driver              `protobuf:"bytes,1,rep,name=drivers,proto3" json:"drivers,omitempty"`
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDriversResponse) Reset() {
+	*x = ListDriversResponse{}
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDriversResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDriversResponse) ProtoMessage() {}
+
+func (x *ListDriversResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDriversResponse.ProtoReflect.Descriptor instead.
+func (*ListDriversResponse) Descriptor() ([]byte, []int) {
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListDriversResponse) GetDrivers() []*Driver {
+	if x != nil {
+		return x.Drivers
+	}
+	return nil
+}
+
+func (x *ListDriversResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type Driver struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CompanyId    string                 `protobuf:"bytes,2,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
+	FullName     string                 `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	Phone        string                 `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`
+	EmployeeNo   string                 `protobuf:"bytes,5,opt,name=employee_no,json=employeeNo,proto3" json:"employee_no,omitempty"`
+	LicenseNo    string                 `protobuf:"bytes,6,opt,name=license_no,json=licenseNo,proto3" json:"license_no,omitempty"`
+	LicenseClass string                 `protobuf:"bytes,7,opt,name=license_class,json=licenseClass,proto3" json:"license_class,omitempty"`
+	// license_expiry is a date, carried at UTC midnight.
+	LicenseExpiry *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=license_expiry,json=licenseExpiry,proto3" json:"license_expiry,omitempty"`
+	// status is active or inactive.
+	Status string `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"`
+	// user_id is the auth user when this person has a login; empty otherwise.
+	UserId string `protobuf:"bytes,10,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// fms_employee_id is the FMS alias stamped at import or by FMS's own sync;
+	// 0 when this driver never existed in FMS.
+	FmsEmployeeId int64                  `protobuf:"varint,11,opt,name=fms_employee_id,json=fmsEmployeeId,proto3" json:"fms_employee_id,omitempty"`
+	Deleted       bool                   `protobuf:"varint,12,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Driver) Reset() {
+	*x = Driver{}
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Driver) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Driver) ProtoMessage() {}
+
+func (x *Driver) ProtoReflect() protoreflect.Message {
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Driver.ProtoReflect.Descriptor instead.
+func (*Driver) Descriptor() ([]byte, []int) {
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *Driver) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Driver) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
+}
+
+func (x *Driver) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *Driver) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *Driver) GetEmployeeNo() string {
+	if x != nil {
+		return x.EmployeeNo
+	}
+	return ""
+}
+
+func (x *Driver) GetLicenseNo() string {
+	if x != nil {
+		return x.LicenseNo
+	}
+	return ""
+}
+
+func (x *Driver) GetLicenseClass() string {
+	if x != nil {
+		return x.LicenseClass
+	}
+	return ""
+}
+
+func (x *Driver) GetLicenseExpiry() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LicenseExpiry
+	}
+	return nil
+}
+
+func (x *Driver) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Driver) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *Driver) GetFmsEmployeeId() int64 {
+	if x != nil {
+		return x.FmsEmployeeId
+	}
+	return 0
+}
+
+func (x *Driver) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
+func (x *Driver) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Driver) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
 type ListTrucksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CompanyId     string                 `protobuf:"bytes,1,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
@@ -1037,7 +1312,7 @@ type ListTrucksRequest struct {
 
 func (x *ListTrucksRequest) Reset() {
 	*x = ListTrucksRequest{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[13]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +1324,7 @@ func (x *ListTrucksRequest) String() string {
 func (*ListTrucksRequest) ProtoMessage() {}
 
 func (x *ListTrucksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[13]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +1337,7 @@ func (x *ListTrucksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTrucksRequest.ProtoReflect.Descriptor instead.
 func (*ListTrucksRequest) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{13}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListTrucksRequest) GetCompanyId() string {
@@ -1089,7 +1364,7 @@ type ListTrucksResponse struct {
 
 func (x *ListTrucksResponse) Reset() {
 	*x = ListTrucksResponse{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[14]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1101,7 +1376,7 @@ func (x *ListTrucksResponse) String() string {
 func (*ListTrucksResponse) ProtoMessage() {}
 
 func (x *ListTrucksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[14]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1114,7 +1389,7 @@ func (x *ListTrucksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTrucksResponse.ProtoReflect.Descriptor instead.
 func (*ListTrucksResponse) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{14}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListTrucksResponse) GetTrucks() []*Truck {
@@ -1140,7 +1415,7 @@ type GetTrucksByDriverRequest struct {
 
 func (x *GetTrucksByDriverRequest) Reset() {
 	*x = GetTrucksByDriverRequest{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[15]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1152,7 +1427,7 @@ func (x *GetTrucksByDriverRequest) String() string {
 func (*GetTrucksByDriverRequest) ProtoMessage() {}
 
 func (x *GetTrucksByDriverRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[15]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1165,7 +1440,7 @@ func (x *GetTrucksByDriverRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTrucksByDriverRequest.ProtoReflect.Descriptor instead.
 func (*GetTrucksByDriverRequest) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{15}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetTrucksByDriverRequest) GetDriverId() string {
@@ -1184,7 +1459,7 @@ type GetTrucksByDriverResponse struct {
 
 func (x *GetTrucksByDriverResponse) Reset() {
 	*x = GetTrucksByDriverResponse{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[16]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1196,7 +1471,7 @@ func (x *GetTrucksByDriverResponse) String() string {
 func (*GetTrucksByDriverResponse) ProtoMessage() {}
 
 func (x *GetTrucksByDriverResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[16]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1209,7 +1484,7 @@ func (x *GetTrucksByDriverResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTrucksByDriverResponse.ProtoReflect.Descriptor instead.
 func (*GetTrucksByDriverResponse) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{16}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetTrucksByDriverResponse) GetTrucks() []*Truck {
@@ -1243,7 +1518,7 @@ type Warehouse struct {
 
 func (x *Warehouse) Reset() {
 	*x = Warehouse{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[17]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1255,7 +1530,7 @@ func (x *Warehouse) String() string {
 func (*Warehouse) ProtoMessage() {}
 
 func (x *Warehouse) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[17]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1268,7 +1543,7 @@ func (x *Warehouse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Warehouse.ProtoReflect.Descriptor instead.
 func (*Warehouse) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{17}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Warehouse) GetId() string {
@@ -1378,7 +1653,7 @@ type GetWarehouseRequest struct {
 
 func (x *GetWarehouseRequest) Reset() {
 	*x = GetWarehouseRequest{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[18]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1390,7 +1665,7 @@ func (x *GetWarehouseRequest) String() string {
 func (*GetWarehouseRequest) ProtoMessage() {}
 
 func (x *GetWarehouseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[18]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1403,7 +1678,7 @@ func (x *GetWarehouseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWarehouseRequest.ProtoReflect.Descriptor instead.
 func (*GetWarehouseRequest) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{18}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetWarehouseRequest) GetId() string {
@@ -1422,7 +1697,7 @@ type GetWarehouseResponse struct {
 
 func (x *GetWarehouseResponse) Reset() {
 	*x = GetWarehouseResponse{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[19]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1434,7 +1709,7 @@ func (x *GetWarehouseResponse) String() string {
 func (*GetWarehouseResponse) ProtoMessage() {}
 
 func (x *GetWarehouseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[19]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1447,7 +1722,7 @@ func (x *GetWarehouseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWarehouseResponse.ProtoReflect.Descriptor instead.
 func (*GetWarehouseResponse) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{19}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetWarehouseResponse) GetWarehouse() *Warehouse {
@@ -1467,7 +1742,7 @@ type ListWarehousesRequest struct {
 
 func (x *ListWarehousesRequest) Reset() {
 	*x = ListWarehousesRequest{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[20]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1479,7 +1754,7 @@ func (x *ListWarehousesRequest) String() string {
 func (*ListWarehousesRequest) ProtoMessage() {}
 
 func (x *ListWarehousesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[20]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1492,7 +1767,7 @@ func (x *ListWarehousesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWarehousesRequest.ProtoReflect.Descriptor instead.
 func (*ListWarehousesRequest) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{20}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListWarehousesRequest) GetCompanyId() string {
@@ -1519,7 +1794,7 @@ type ListWarehousesResponse struct {
 
 func (x *ListWarehousesResponse) Reset() {
 	*x = ListWarehousesResponse{}
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[21]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1531,7 +1806,7 @@ func (x *ListWarehousesResponse) String() string {
 func (*ListWarehousesResponse) ProtoMessage() {}
 
 func (x *ListWarehousesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[21]
+	mi := &file_karlo_masterdata_v1_masterdata_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1544,7 +1819,7 @@ func (x *ListWarehousesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWarehousesResponse.ProtoReflect.Descriptor instead.
 func (*ListWarehousesResponse) Descriptor() ([]byte, []int) {
-	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{21}
+	return file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListWarehousesResponse) GetWarehouses() []*Warehouse {
@@ -1644,7 +1919,37 @@ const file_karlo_masterdata_v1_masterdata_proto_rawDesc = "" +
 	"\x0fGetTruckRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"D\n" +
 	"\x10GetTruckResponse\x120\n" +
-	"\x05truck\x18\x01 \x01(\v2\x1a.karlo.masterdata.v1.TruckR\x05truck\"`\n" +
+	"\x05truck\x18\x01 \x01(\v2\x1a.karlo.masterdata.v1.TruckR\x05truck\"\xa5\x01\n" +
+	"\x12ListDriversRequest\x12\x1d\n" +
+	"\n" +
+	"company_id\x18\x01 \x01(\tR\tcompanyId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12?\n" +
+	"\rupdated_since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\fupdatedSince\"b\n" +
+	"\x13ListDriversResponse\x125\n" +
+	"\adrivers\x18\x01 \x03(\v2\x1b.karlo.masterdata.v1.DriverR\adrivers\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\"\xfb\x03\n" +
+	"\x06Driver\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"company_id\x18\x02 \x01(\tR\tcompanyId\x12\x1b\n" +
+	"\tfull_name\x18\x03 \x01(\tR\bfullName\x12\x14\n" +
+	"\x05phone\x18\x04 \x01(\tR\x05phone\x12\x1f\n" +
+	"\vemployee_no\x18\x05 \x01(\tR\n" +
+	"employeeNo\x12\x1d\n" +
+	"\n" +
+	"license_no\x18\x06 \x01(\tR\tlicenseNo\x12#\n" +
+	"\rlicense_class\x18\a \x01(\tR\flicenseClass\x12A\n" +
+	"\x0elicense_expiry\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\rlicenseExpiry\x12\x16\n" +
+	"\x06status\x18\t \x01(\tR\x06status\x12\x17\n" +
+	"\auser_id\x18\n" +
+	" \x01(\tR\x06userId\x12&\n" +
+	"\x0ffms_employee_id\x18\v \x01(\x03R\rfmsEmployeeId\x12\x18\n" +
+	"\adeleted\x18\f \x01(\bR\adeleted\x129\n" +
+	"\n" +
+	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"`\n" +
 	"\x11ListTrucksRequest\x12\x1d\n" +
 	"\n" +
 	"company_id\x18\x01 \x01(\tR\tcompanyId\x12,\n" +
@@ -1711,7 +2016,7 @@ const file_karlo_masterdata_v1_masterdata_proto_rawDesc = "" +
 	"\x17CATALOG_KIND_TRUCK_HEAD\x10\x11\x12\x1b\n" +
 	"\x17CATALOG_KIND_TRUCK_TYPE\x10\x12\x12\x14\n" +
 	"\x10CATALOG_KIND_FAQ\x10\x13\x12\x1c\n" +
-	"\x18CATALOG_KIND_JOB_VACANCY\x10\x142\xdc\a\n" +
+	"\x18CATALOG_KIND_JOB_VACANCY\x10\x142\xbe\b\n" +
 	"\x11MasterDataService\x12i\n" +
 	"\x0eGetCatalogItem\x12*.karlo.masterdata.v1.GetCatalogItemRequest\x1a+.karlo.masterdata.v1.GetCatalogItemResponse\x12o\n" +
 	"\x10ListCatalogItems\x12,.karlo.masterdata.v1.ListCatalogItemsRequest\x1a-.karlo.masterdata.v1.ListCatalogItemsResponse\x12x\n" +
@@ -1719,7 +2024,8 @@ const file_karlo_masterdata_v1_masterdata_proto_rawDesc = "" +
 	"\x12ValidateReferences\x12..karlo.masterdata.v1.ValidateReferencesRequest\x1a/.karlo.masterdata.v1.ValidateReferencesResponse\x12W\n" +
 	"\bGetTruck\x12$.karlo.masterdata.v1.GetTruckRequest\x1a%.karlo.masterdata.v1.GetTruckResponse\x12]\n" +
 	"\n" +
-	"ListTrucks\x12&.karlo.masterdata.v1.ListTrucksRequest\x1a'.karlo.masterdata.v1.ListTrucksResponse\x12r\n" +
+	"ListTrucks\x12&.karlo.masterdata.v1.ListTrucksRequest\x1a'.karlo.masterdata.v1.ListTrucksResponse\x12`\n" +
+	"\vListDrivers\x12'.karlo.masterdata.v1.ListDriversRequest\x1a(.karlo.masterdata.v1.ListDriversResponse\x12r\n" +
 	"\x11GetTrucksByDriver\x12-.karlo.masterdata.v1.GetTrucksByDriverRequest\x1a..karlo.masterdata.v1.GetTrucksByDriverResponse\x12c\n" +
 	"\fGetWarehouse\x12(.karlo.masterdata.v1.GetWarehouseRequest\x1a).karlo.masterdata.v1.GetWarehouseResponse\x12i\n" +
 	"\x0eListWarehouses\x12*.karlo.masterdata.v1.ListWarehousesRequest\x1a+.karlo.masterdata.v1.ListWarehousesResponseB\xf9\x01\n" +
@@ -1738,7 +2044,7 @@ func file_karlo_masterdata_v1_masterdata_proto_rawDescGZIP() []byte {
 }
 
 var file_karlo_masterdata_v1_masterdata_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_karlo_masterdata_v1_masterdata_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_karlo_masterdata_v1_masterdata_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_karlo_masterdata_v1_masterdata_proto_goTypes = []any{
 	(CatalogKind)(0),                    // 0: karlo.masterdata.v1.CatalogKind
 	(*CatalogItem)(nil),                 // 1: karlo.masterdata.v1.CatalogItem
@@ -1754,73 +2060,83 @@ var file_karlo_masterdata_v1_masterdata_proto_goTypes = []any{
 	(*Truck)(nil),                       // 11: karlo.masterdata.v1.Truck
 	(*GetTruckRequest)(nil),             // 12: karlo.masterdata.v1.GetTruckRequest
 	(*GetTruckResponse)(nil),            // 13: karlo.masterdata.v1.GetTruckResponse
-	(*ListTrucksRequest)(nil),           // 14: karlo.masterdata.v1.ListTrucksRequest
-	(*ListTrucksResponse)(nil),          // 15: karlo.masterdata.v1.ListTrucksResponse
-	(*GetTrucksByDriverRequest)(nil),    // 16: karlo.masterdata.v1.GetTrucksByDriverRequest
-	(*GetTrucksByDriverResponse)(nil),   // 17: karlo.masterdata.v1.GetTrucksByDriverResponse
-	(*Warehouse)(nil),                   // 18: karlo.masterdata.v1.Warehouse
-	(*GetWarehouseRequest)(nil),         // 19: karlo.masterdata.v1.GetWarehouseRequest
-	(*GetWarehouseResponse)(nil),        // 20: karlo.masterdata.v1.GetWarehouseResponse
-	(*ListWarehousesRequest)(nil),       // 21: karlo.masterdata.v1.ListWarehousesRequest
-	(*ListWarehousesResponse)(nil),      // 22: karlo.masterdata.v1.ListWarehousesResponse
-	(*structpb.Struct)(nil),             // 23: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),       // 24: google.protobuf.Timestamp
-	(*v1.Query)(nil),                    // 25: karlo.common.v1.Query
-	(*v1.PageInfo)(nil),                 // 26: karlo.common.v1.PageInfo
+	(*ListDriversRequest)(nil),          // 14: karlo.masterdata.v1.ListDriversRequest
+	(*ListDriversResponse)(nil),         // 15: karlo.masterdata.v1.ListDriversResponse
+	(*Driver)(nil),                      // 16: karlo.masterdata.v1.Driver
+	(*ListTrucksRequest)(nil),           // 17: karlo.masterdata.v1.ListTrucksRequest
+	(*ListTrucksResponse)(nil),          // 18: karlo.masterdata.v1.ListTrucksResponse
+	(*GetTrucksByDriverRequest)(nil),    // 19: karlo.masterdata.v1.GetTrucksByDriverRequest
+	(*GetTrucksByDriverResponse)(nil),   // 20: karlo.masterdata.v1.GetTrucksByDriverResponse
+	(*Warehouse)(nil),                   // 21: karlo.masterdata.v1.Warehouse
+	(*GetWarehouseRequest)(nil),         // 22: karlo.masterdata.v1.GetWarehouseRequest
+	(*GetWarehouseResponse)(nil),        // 23: karlo.masterdata.v1.GetWarehouseResponse
+	(*ListWarehousesRequest)(nil),       // 24: karlo.masterdata.v1.ListWarehousesRequest
+	(*ListWarehousesResponse)(nil),      // 25: karlo.masterdata.v1.ListWarehousesResponse
+	(*structpb.Struct)(nil),             // 26: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),       // 27: google.protobuf.Timestamp
+	(*v1.Query)(nil),                    // 28: karlo.common.v1.Query
+	(*v1.PageInfo)(nil),                 // 29: karlo.common.v1.PageInfo
 }
 var file_karlo_masterdata_v1_masterdata_proto_depIdxs = []int32{
 	0,  // 0: karlo.masterdata.v1.CatalogItem.kind:type_name -> karlo.masterdata.v1.CatalogKind
-	23, // 1: karlo.masterdata.v1.CatalogItem.attributes:type_name -> google.protobuf.Struct
-	24, // 2: karlo.masterdata.v1.CatalogItem.created_at:type_name -> google.protobuf.Timestamp
-	24, // 3: karlo.masterdata.v1.CatalogItem.updated_at:type_name -> google.protobuf.Timestamp
+	26, // 1: karlo.masterdata.v1.CatalogItem.attributes:type_name -> google.protobuf.Struct
+	27, // 2: karlo.masterdata.v1.CatalogItem.created_at:type_name -> google.protobuf.Timestamp
+	27, // 3: karlo.masterdata.v1.CatalogItem.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: karlo.masterdata.v1.GetCatalogItemRequest.kind:type_name -> karlo.masterdata.v1.CatalogKind
 	1,  // 5: karlo.masterdata.v1.GetCatalogItemResponse.item:type_name -> karlo.masterdata.v1.CatalogItem
 	0,  // 6: karlo.masterdata.v1.ListCatalogItemsRequest.kind:type_name -> karlo.masterdata.v1.CatalogKind
-	25, // 7: karlo.masterdata.v1.ListCatalogItemsRequest.query:type_name -> karlo.common.v1.Query
+	28, // 7: karlo.masterdata.v1.ListCatalogItemsRequest.query:type_name -> karlo.common.v1.Query
 	1,  // 8: karlo.masterdata.v1.ListCatalogItemsResponse.items:type_name -> karlo.masterdata.v1.CatalogItem
-	26, // 9: karlo.masterdata.v1.ListCatalogItemsResponse.page_info:type_name -> karlo.common.v1.PageInfo
+	29, // 9: karlo.masterdata.v1.ListCatalogItemsResponse.page_info:type_name -> karlo.common.v1.PageInfo
 	0,  // 10: karlo.masterdata.v1.CatalogRef.kind:type_name -> karlo.masterdata.v1.CatalogKind
 	6,  // 11: karlo.masterdata.v1.ResolveCatalogItemsRequest.refs:type_name -> karlo.masterdata.v1.CatalogRef
 	1,  // 12: karlo.masterdata.v1.ResolveCatalogItemsResponse.items:type_name -> karlo.masterdata.v1.CatalogItem
 	6,  // 13: karlo.masterdata.v1.ValidateReferencesRequest.refs:type_name -> karlo.masterdata.v1.CatalogRef
 	6,  // 14: karlo.masterdata.v1.ValidateReferencesResponse.invalid:type_name -> karlo.masterdata.v1.CatalogRef
-	23, // 15: karlo.masterdata.v1.Truck.documents:type_name -> google.protobuf.Struct
-	24, // 16: karlo.masterdata.v1.Truck.created_at:type_name -> google.protobuf.Timestamp
-	24, // 17: karlo.masterdata.v1.Truck.updated_at:type_name -> google.protobuf.Timestamp
+	26, // 15: karlo.masterdata.v1.Truck.documents:type_name -> google.protobuf.Struct
+	27, // 16: karlo.masterdata.v1.Truck.created_at:type_name -> google.protobuf.Timestamp
+	27, // 17: karlo.masterdata.v1.Truck.updated_at:type_name -> google.protobuf.Timestamp
 	11, // 18: karlo.masterdata.v1.GetTruckResponse.truck:type_name -> karlo.masterdata.v1.Truck
-	25, // 19: karlo.masterdata.v1.ListTrucksRequest.query:type_name -> karlo.common.v1.Query
-	11, // 20: karlo.masterdata.v1.ListTrucksResponse.trucks:type_name -> karlo.masterdata.v1.Truck
-	26, // 21: karlo.masterdata.v1.ListTrucksResponse.page_info:type_name -> karlo.common.v1.PageInfo
-	11, // 22: karlo.masterdata.v1.GetTrucksByDriverResponse.trucks:type_name -> karlo.masterdata.v1.Truck
-	24, // 23: karlo.masterdata.v1.Warehouse.created_at:type_name -> google.protobuf.Timestamp
-	24, // 24: karlo.masterdata.v1.Warehouse.updated_at:type_name -> google.protobuf.Timestamp
-	18, // 25: karlo.masterdata.v1.GetWarehouseResponse.warehouse:type_name -> karlo.masterdata.v1.Warehouse
-	25, // 26: karlo.masterdata.v1.ListWarehousesRequest.query:type_name -> karlo.common.v1.Query
-	18, // 27: karlo.masterdata.v1.ListWarehousesResponse.warehouses:type_name -> karlo.masterdata.v1.Warehouse
-	26, // 28: karlo.masterdata.v1.ListWarehousesResponse.page_info:type_name -> karlo.common.v1.PageInfo
-	2,  // 29: karlo.masterdata.v1.MasterDataService.GetCatalogItem:input_type -> karlo.masterdata.v1.GetCatalogItemRequest
-	4,  // 30: karlo.masterdata.v1.MasterDataService.ListCatalogItems:input_type -> karlo.masterdata.v1.ListCatalogItemsRequest
-	7,  // 31: karlo.masterdata.v1.MasterDataService.ResolveCatalogItems:input_type -> karlo.masterdata.v1.ResolveCatalogItemsRequest
-	9,  // 32: karlo.masterdata.v1.MasterDataService.ValidateReferences:input_type -> karlo.masterdata.v1.ValidateReferencesRequest
-	12, // 33: karlo.masterdata.v1.MasterDataService.GetTruck:input_type -> karlo.masterdata.v1.GetTruckRequest
-	14, // 34: karlo.masterdata.v1.MasterDataService.ListTrucks:input_type -> karlo.masterdata.v1.ListTrucksRequest
-	16, // 35: karlo.masterdata.v1.MasterDataService.GetTrucksByDriver:input_type -> karlo.masterdata.v1.GetTrucksByDriverRequest
-	19, // 36: karlo.masterdata.v1.MasterDataService.GetWarehouse:input_type -> karlo.masterdata.v1.GetWarehouseRequest
-	21, // 37: karlo.masterdata.v1.MasterDataService.ListWarehouses:input_type -> karlo.masterdata.v1.ListWarehousesRequest
-	3,  // 38: karlo.masterdata.v1.MasterDataService.GetCatalogItem:output_type -> karlo.masterdata.v1.GetCatalogItemResponse
-	5,  // 39: karlo.masterdata.v1.MasterDataService.ListCatalogItems:output_type -> karlo.masterdata.v1.ListCatalogItemsResponse
-	8,  // 40: karlo.masterdata.v1.MasterDataService.ResolveCatalogItems:output_type -> karlo.masterdata.v1.ResolveCatalogItemsResponse
-	10, // 41: karlo.masterdata.v1.MasterDataService.ValidateReferences:output_type -> karlo.masterdata.v1.ValidateReferencesResponse
-	13, // 42: karlo.masterdata.v1.MasterDataService.GetTruck:output_type -> karlo.masterdata.v1.GetTruckResponse
-	15, // 43: karlo.masterdata.v1.MasterDataService.ListTrucks:output_type -> karlo.masterdata.v1.ListTrucksResponse
-	17, // 44: karlo.masterdata.v1.MasterDataService.GetTrucksByDriver:output_type -> karlo.masterdata.v1.GetTrucksByDriverResponse
-	20, // 45: karlo.masterdata.v1.MasterDataService.GetWarehouse:output_type -> karlo.masterdata.v1.GetWarehouseResponse
-	22, // 46: karlo.masterdata.v1.MasterDataService.ListWarehouses:output_type -> karlo.masterdata.v1.ListWarehousesResponse
-	38, // [38:47] is the sub-list for method output_type
-	29, // [29:38] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	27, // 19: karlo.masterdata.v1.ListDriversRequest.updated_since:type_name -> google.protobuf.Timestamp
+	16, // 20: karlo.masterdata.v1.ListDriversResponse.drivers:type_name -> karlo.masterdata.v1.Driver
+	27, // 21: karlo.masterdata.v1.Driver.license_expiry:type_name -> google.protobuf.Timestamp
+	27, // 22: karlo.masterdata.v1.Driver.created_at:type_name -> google.protobuf.Timestamp
+	27, // 23: karlo.masterdata.v1.Driver.updated_at:type_name -> google.protobuf.Timestamp
+	28, // 24: karlo.masterdata.v1.ListTrucksRequest.query:type_name -> karlo.common.v1.Query
+	11, // 25: karlo.masterdata.v1.ListTrucksResponse.trucks:type_name -> karlo.masterdata.v1.Truck
+	29, // 26: karlo.masterdata.v1.ListTrucksResponse.page_info:type_name -> karlo.common.v1.PageInfo
+	11, // 27: karlo.masterdata.v1.GetTrucksByDriverResponse.trucks:type_name -> karlo.masterdata.v1.Truck
+	27, // 28: karlo.masterdata.v1.Warehouse.created_at:type_name -> google.protobuf.Timestamp
+	27, // 29: karlo.masterdata.v1.Warehouse.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 30: karlo.masterdata.v1.GetWarehouseResponse.warehouse:type_name -> karlo.masterdata.v1.Warehouse
+	28, // 31: karlo.masterdata.v1.ListWarehousesRequest.query:type_name -> karlo.common.v1.Query
+	21, // 32: karlo.masterdata.v1.ListWarehousesResponse.warehouses:type_name -> karlo.masterdata.v1.Warehouse
+	29, // 33: karlo.masterdata.v1.ListWarehousesResponse.page_info:type_name -> karlo.common.v1.PageInfo
+	2,  // 34: karlo.masterdata.v1.MasterDataService.GetCatalogItem:input_type -> karlo.masterdata.v1.GetCatalogItemRequest
+	4,  // 35: karlo.masterdata.v1.MasterDataService.ListCatalogItems:input_type -> karlo.masterdata.v1.ListCatalogItemsRequest
+	7,  // 36: karlo.masterdata.v1.MasterDataService.ResolveCatalogItems:input_type -> karlo.masterdata.v1.ResolveCatalogItemsRequest
+	9,  // 37: karlo.masterdata.v1.MasterDataService.ValidateReferences:input_type -> karlo.masterdata.v1.ValidateReferencesRequest
+	12, // 38: karlo.masterdata.v1.MasterDataService.GetTruck:input_type -> karlo.masterdata.v1.GetTruckRequest
+	17, // 39: karlo.masterdata.v1.MasterDataService.ListTrucks:input_type -> karlo.masterdata.v1.ListTrucksRequest
+	14, // 40: karlo.masterdata.v1.MasterDataService.ListDrivers:input_type -> karlo.masterdata.v1.ListDriversRequest
+	19, // 41: karlo.masterdata.v1.MasterDataService.GetTrucksByDriver:input_type -> karlo.masterdata.v1.GetTrucksByDriverRequest
+	22, // 42: karlo.masterdata.v1.MasterDataService.GetWarehouse:input_type -> karlo.masterdata.v1.GetWarehouseRequest
+	24, // 43: karlo.masterdata.v1.MasterDataService.ListWarehouses:input_type -> karlo.masterdata.v1.ListWarehousesRequest
+	3,  // 44: karlo.masterdata.v1.MasterDataService.GetCatalogItem:output_type -> karlo.masterdata.v1.GetCatalogItemResponse
+	5,  // 45: karlo.masterdata.v1.MasterDataService.ListCatalogItems:output_type -> karlo.masterdata.v1.ListCatalogItemsResponse
+	8,  // 46: karlo.masterdata.v1.MasterDataService.ResolveCatalogItems:output_type -> karlo.masterdata.v1.ResolveCatalogItemsResponse
+	10, // 47: karlo.masterdata.v1.MasterDataService.ValidateReferences:output_type -> karlo.masterdata.v1.ValidateReferencesResponse
+	13, // 48: karlo.masterdata.v1.MasterDataService.GetTruck:output_type -> karlo.masterdata.v1.GetTruckResponse
+	18, // 49: karlo.masterdata.v1.MasterDataService.ListTrucks:output_type -> karlo.masterdata.v1.ListTrucksResponse
+	15, // 50: karlo.masterdata.v1.MasterDataService.ListDrivers:output_type -> karlo.masterdata.v1.ListDriversResponse
+	20, // 51: karlo.masterdata.v1.MasterDataService.GetTrucksByDriver:output_type -> karlo.masterdata.v1.GetTrucksByDriverResponse
+	23, // 52: karlo.masterdata.v1.MasterDataService.GetWarehouse:output_type -> karlo.masterdata.v1.GetWarehouseResponse
+	25, // 53: karlo.masterdata.v1.MasterDataService.ListWarehouses:output_type -> karlo.masterdata.v1.ListWarehousesResponse
+	44, // [44:54] is the sub-list for method output_type
+	34, // [34:44] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_karlo_masterdata_v1_masterdata_proto_init() }
@@ -1834,7 +2150,7 @@ func file_karlo_masterdata_v1_masterdata_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_karlo_masterdata_v1_masterdata_proto_rawDesc), len(file_karlo_masterdata_v1_masterdata_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   22,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

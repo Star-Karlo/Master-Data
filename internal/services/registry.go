@@ -194,6 +194,18 @@ func (s *RegistryService) ListDrivers(ctx context.Context, companyID string, p q
 	return page[models.Driver](ctx, s.drivers.Collection(), filter, p)
 }
 
+// ListDriversForSync pages every driver of a company including retired
+// ones, for a service keeping a projection. Ordered by _id so a page
+// boundary is stable; updatedSince makes a refresh incremental.
+func (s *RegistryService) ListDriversForSync(ctx context.Context, companyID string, pageNo, pageSize int, updatedSince *time.Time) ([]models.Driver, int64, error) {
+	filter := bson.M{"companyId": companyID}
+	if updatedSince != nil {
+		filter["updatedAt"] = bson.M{"$gte": updatedSince.UTC()}
+	}
+	p := query.Params{Page: pageNo, PageSize: pageSize, Sorts: []query.Sort{{Field: "_id"}}}
+	return page[models.Driver](ctx, s.drivers.Collection(), filter, p)
+}
+
 func (s *RegistryService) GetDriver(ctx context.Context, companyID, id string) (*models.Driver, error) {
 	o, err := oid(id)
 	if err != nil {

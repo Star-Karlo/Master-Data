@@ -12,12 +12,14 @@ package grpcserver
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/karlo/masterdata-service/internal/models"
 	commonv1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/common/v1"
 	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
 	"github.com/karlo/masterdata-service/internal/platform/query"
@@ -28,12 +30,13 @@ import (
 type Server struct {
 	masterdatav1.UnimplementedMasterDataServiceServer
 
-	catalog *services.CatalogService
-	fleet   *services.FleetService
+	catalog  *services.CatalogService
+	fleet    *services.FleetService
+	registry *services.RegistryService
 }
 
-func New(catalog *services.CatalogService, fleet *services.FleetService) *Server {
-	return &Server{catalog: catalog, fleet: fleet}
+func New(catalog *services.CatalogService, fleet *services.FleetService, registry *services.RegistryService) *Server {
+	return &Server{catalog: catalog, fleet: fleet, registry: registry}
 }
 
 // kindNames maps the proto enum onto the names the services package uses.
@@ -172,6 +175,70 @@ func (s *Server) GetTruck(ctx context.Context, req *masterdatav1.GetTruckRequest
 		return nil, mapError(err)
 	}
 	return &masterdatav1.GetTruckResponse{Truck: toProtoTruck(*truck)}, nil
+}
+
+func (s *Server) ListDrivers(ctx context.Context, req *masterdatav1.ListDriversRequest) (*masterdatav1.ListDriversResponse, error) {
+	if req.GetCompanyId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	}
+	page := int(req.GetPage())
+	if page < 0 {
+		page = 0
+	}
+	size := int(req.GetPageSize())
+	if size <= 0 {
+		size = 200
+	}
+	if size > 1000 {
+		size = 1000
+	}
+	var since *time.Time
+	if req.GetUpdatedSince() != nil {
+		t := req.GetUpdatedSince().AsTime()
+		since = &t
+	}
+	rows, total, err := s.registry.ListDriversForSync(ctx, req.GetCompanyId(), page, size, since)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := &masterdatav1.ListDriversResponse{Total: total, Drivers: make([]*masterdatav1.Driver, 0, len(rows))}
+	for i := range rows {
+		out.Drivers = append(out.Drivers, toProtoDriver(&rows[i]))
+	}
+	return out, nil
+}
+
+func toProtoDriver(d *models.Driver) *masterdatav1.Driver {
+	out := &masterdatav1.Driver{
+		Id:           d.ID.Hex(),
+		CompanyId:    d.CompanyID,
+		FullName:     d.FullName,
+		Phone:        deref(d.Phone),
+		EmployeeNo:   deref(d.EmployeeNo),
+		LicenseNo:    deref(d.LicenseNo),
+		LicenseClass: deref(d.LicenseClass),
+		Status:       d.Status,
+		UserId:       deref(d.UserID),
+		Deleted:      d.Deleted,
+		CreatedAt:    timestamppb.New(d.CreatedAt),
+		UpdatedAt:    timestamppb.New(d.UpdatedAt),
+	}
+	if d.LicenseExpiry != nil {
+		out.LicenseExpiry = timestamppb.New(*d.LicenseExpiry)
+	}
+	// The alias lives in attributes, where the import put it; it may be a
+	// float after a JSON round trip.
+	switch v := d.Attributes["fmsEmployeeId"].(type) {
+	case int64:
+		out.FmsEmployeeId = v
+	case int32:
+		out.FmsEmployeeId = int64(v)
+	case int:
+		out.FmsEmployeeId = int64(v)
+	case float64:
+		out.FmsEmployeeId = int64(v)
+	}
+	return out
 }
 
 func (s *Server) ListTrucks(ctx context.Context, req *masterdatav1.ListTrucksRequest) (*masterdatav1.ListTrucksResponse, error) {
@@ -346,3 +413,10 @@ var (
 		"name": "name", "city": "city", "createdAt": "createdAt",
 	}
 )
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

@@ -79,6 +79,7 @@ func run() error {
 
 	catalogService := services.NewCatalogService(db)
 	fleetService := services.NewFleetService(db)
+	registryService := services.NewRegistryService(db)
 
 	grpcSrv := grpcutil.NewServer(grpcutil.ServerConfig{
 		Service:               "masterdata",
@@ -89,7 +90,7 @@ func run() error {
 	})
 	masterdatav1.RegisterMasterDataServiceServer(
 		grpcSrv.Registrar(),
-		grpcserver.New(catalogService, fleetService),
+		grpcserver.New(catalogService, fleetService, registryService),
 	)
 
 	router := routes.Setup(routes.Deps{
@@ -98,7 +99,7 @@ func run() error {
 		Remote:   remote,
 		Catalog:  handlers.NewCatalogHandler(catalogService),
 		Fleet:    handlers.NewFleetHandler(fleetService),
-		Registry: handlers.NewRegistryHandler(services.NewRegistryService(db)),
+		Registry: handlers.NewRegistryHandler(registryService),
 	})
 
 	httpSrv := &http.Server{

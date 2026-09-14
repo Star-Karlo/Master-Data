@@ -25,6 +25,7 @@ const (
 	MasterDataService_ValidateReferences_FullMethodName  = "/karlo.masterdata.v1.MasterDataService/ValidateReferences"
 	MasterDataService_GetTruck_FullMethodName            = "/karlo.masterdata.v1.MasterDataService/GetTruck"
 	MasterDataService_ListTrucks_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/ListTrucks"
+	MasterDataService_ListDrivers_FullMethodName         = "/karlo.masterdata.v1.MasterDataService/ListDrivers"
 	MasterDataService_GetTrucksByDriver_FullMethodName   = "/karlo.masterdata.v1.MasterDataService/GetTrucksByDriver"
 	MasterDataService_GetWarehouse_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/GetWarehouse"
 	MasterDataService_ListWarehouses_FullMethodName      = "/karlo.masterdata.v1.MasterDataService/ListWarehouses"
@@ -58,6 +59,10 @@ type MasterDataServiceClient interface {
 	ValidateReferences(ctx context.Context, in *ValidateReferencesRequest, opts ...grpc.CallOption) (*ValidateReferencesResponse, error)
 	GetTruck(ctx context.Context, in *GetTruckRequest, opts ...grpc.CallOption) (*GetTruckResponse, error)
 	ListTrucks(ctx context.Context, in *ListTrucksRequest, opts ...grpc.CallOption) (*ListTrucksResponse, error)
+	// ListDrivers pages a company's driver register, for a service that keeps
+	// a projection of it — FMS's driversync. updated_since makes it
+	// incremental; deleted rows are included so a projection can retire them.
+	ListDrivers(ctx context.Context, in *ListDriversRequest, opts ...grpc.CallOption) (*ListDriversResponse, error)
 	// GetTrucksByDriver supports the assign-driver flow in the business service,
 	// which must know which trucks a driver is paired with.
 	GetTrucksByDriver(ctx context.Context, in *GetTrucksByDriverRequest, opts ...grpc.CallOption) (*GetTrucksByDriverResponse, error)
@@ -133,6 +138,16 @@ func (c *masterDataServiceClient) ListTrucks(ctx context.Context, in *ListTrucks
 	return out, nil
 }
 
+func (c *masterDataServiceClient) ListDrivers(ctx context.Context, in *ListDriversRequest, opts ...grpc.CallOption) (*ListDriversResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDriversResponse)
+	err := c.cc.Invoke(ctx, MasterDataService_ListDrivers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *masterDataServiceClient) GetTrucksByDriver(ctx context.Context, in *GetTrucksByDriverRequest, opts ...grpc.CallOption) (*GetTrucksByDriverResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetTrucksByDriverResponse)
@@ -191,6 +206,10 @@ type MasterDataServiceServer interface {
 	ValidateReferences(context.Context, *ValidateReferencesRequest) (*ValidateReferencesResponse, error)
 	GetTruck(context.Context, *GetTruckRequest) (*GetTruckResponse, error)
 	ListTrucks(context.Context, *ListTrucksRequest) (*ListTrucksResponse, error)
+	// ListDrivers pages a company's driver register, for a service that keeps
+	// a projection of it — FMS's driversync. updated_since makes it
+	// incremental; deleted rows are included so a projection can retire them.
+	ListDrivers(context.Context, *ListDriversRequest) (*ListDriversResponse, error)
 	// GetTrucksByDriver supports the assign-driver flow in the business service,
 	// which must know which trucks a driver is paired with.
 	GetTrucksByDriver(context.Context, *GetTrucksByDriverRequest) (*GetTrucksByDriverResponse, error)
@@ -223,6 +242,9 @@ func (UnimplementedMasterDataServiceServer) GetTruck(context.Context, *GetTruckR
 }
 func (UnimplementedMasterDataServiceServer) ListTrucks(context.Context, *ListTrucksRequest) (*ListTrucksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTrucks not implemented")
+}
+func (UnimplementedMasterDataServiceServer) ListDrivers(context.Context, *ListDriversRequest) (*ListDriversResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDrivers not implemented")
 }
 func (UnimplementedMasterDataServiceServer) GetTrucksByDriver(context.Context, *GetTrucksByDriverRequest) (*GetTrucksByDriverResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTrucksByDriver not implemented")
@@ -362,6 +384,24 @@ func _MasterDataService_ListTrucks_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MasterDataService_ListDrivers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDriversRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterDataServiceServer).ListDrivers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MasterDataService_ListDrivers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterDataServiceServer).ListDrivers(ctx, req.(*ListDriversRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MasterDataService_GetTrucksByDriver_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTrucksByDriverRequest)
 	if err := dec(in); err != nil {
@@ -446,6 +486,10 @@ var MasterDataService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTrucks",
 			Handler:    _MasterDataService_ListTrucks_Handler,
+		},
+		{
+			MethodName: "ListDrivers",
+			Handler:    _MasterDataService_ListDrivers_Handler,
 		},
 		{
 			MethodName: "GetTrucksByDriver",
