@@ -115,15 +115,19 @@ Entries and listings are cached for 15 minutes and invalidated **explicitly** on
 upsert, because a catalogue edit is usually made by someone who then reloads the
 page to check it.
 
-The cache key carries the company scope. Without it, one company's request would
-populate an entry another then reads — which no amount of correct database
-scoping prevents, because the second request never reaches the database. Editing
-a *global* entry sweeps every scope, since a global entry appears in every
-company's listing.
+The cache key carries the scope: the company, `global`, or `staff` for
+platform staff, who see every company's entries at once. Without it, one
+company's request would populate an entry another then reads — which no amount
+of correct database scoping prevents, because the second request never reaches
+the database. A company's write sweeps its own kind and the staff view of it; a
+staff or *global* write sweeps every scope, since a global entry appears in
+every company's listing. `internal/services/catalog_cache_test.go` pins all
+three.
 
 This replaced an in-process map, which meant N Fargate tasks with N independent
 TTLs and an edit that had to expire out of each separately. With `REDIS_ADDR`
-unset the service runs correctly against MongoDB alone. See `../docs/CACHING.md`.
+unset the service runs correctly against MongoDB alone. See
+`../docs/shared/CACHING.md`.
 
 ## Layout
 

@@ -295,6 +295,8 @@ ensure("vehicles", {
       // not need a query over history. NOTHING IN THE DATABASE KEEPS IT IN
       // STEP — see the note at the top of this file.
       trackerId: { bsonType: ["string", "null"] },
+      // The master-data driver, and that driver's login when they have one.
+      currentDriverId: { bsonType: ["string", "null"] },
       currentDriverUserId: { bsonType: ["string", "null"] },
 
       status: { bsonType: "string" },
@@ -341,6 +343,9 @@ ensure("vehicles", {
   { keys: { truckHeadId: 1 }, opts: { name: "ix_vehicles_head" } },
   { keys: { truckBodyId: 1 }, opts: { name: "ix_vehicles_body" } },
   { keys: { currentDriverUserId: 1 }, opts: { name: "ix_vehicles_driver" } },
+  // GetTrucksByDriver filters on the driver id; the pairing check on every
+  // assignment goes through it.
+  { keys: { currentDriverId: 1 }, opts: { name: "ix_vehicles_driver_id" } },
 ]);
 
 ensure("vehicle_groups", {
