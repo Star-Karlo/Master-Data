@@ -16,6 +16,7 @@ import (
 	"github.com/karlo/masterdata-service/internal/grpcserver"
 	"github.com/karlo/masterdata-service/internal/handlers"
 	"github.com/karlo/masterdata-service/internal/platform/authctx"
+	"github.com/karlo/masterdata-service/internal/platform/cache"
 	masterdatav1 "github.com/karlo/masterdata-service/internal/platform/genproto/karlo/masterdata/v1"
 	"github.com/karlo/masterdata-service/internal/platform/grpcutil"
 	"github.com/karlo/masterdata-service/internal/platform/logger"
@@ -77,7 +78,12 @@ func run() error {
 		defer func() { _ = authClient.Close() }()
 	}
 
-	catalogService := services.NewCatalogService(db)
+	// Redis when REDIS_ADDR is set, a no-op otherwise. Catalogue reads are the
+	// hottest path in this service and the first to benefit.
+	cacheClient := cache.FromEnv("masterdata")
+	defer func() { _ = cacheClient.Close() }()
+
+	catalogService := services.NewCatalogService(db, cacheClient)
 	fleetService := services.NewFleetService(db)
 	registryService := services.NewRegistryService(db)
 

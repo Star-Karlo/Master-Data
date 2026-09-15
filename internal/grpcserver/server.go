@@ -269,6 +269,17 @@ func (s *Server) ListTrucks(ctx context.Context, req *masterdatav1.ListTrucksReq
 	return &masterdatav1.ListTrucksResponse{Trucks: out, PageInfo: pageInfo(p, total)}, nil
 }
 
+func (s *Server) GetDriver(ctx context.Context, req *masterdatav1.GetDriverRequest) (*masterdatav1.GetDriverResponse, error) {
+	// Service callers resolve by id alone: the business service holds the
+	// driver id from its own order and needs the person behind it, whichever
+	// company they work for.
+	d, err := s.registry.GetDriverByID(ctx, req.GetId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &masterdatav1.GetDriverResponse{Driver: toProtoDriver(d)}, nil
+}
+
 func (s *Server) GetTrucksByDriver(ctx context.Context, req *masterdatav1.GetTrucksByDriverRequest) (*masterdatav1.GetTrucksByDriverResponse, error) {
 	// The request carries only a driver id. The pairing is unique across
 	// companies — a driver works for one — so scoping is unnecessary here and

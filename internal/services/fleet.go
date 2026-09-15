@@ -147,10 +147,17 @@ func (s *FleetService) GetTruck(ctx context.Context, companyID, id string) (*Tru
 }
 
 // TrucksByDriver answers the business service's assign-driver check.
-func (s *FleetService) TrucksByDriver(ctx context.Context, companyID, driverUserID string) ([]Truck, error) {
+//
+// The id may be either the driver's master-data id or their login's user id:
+// most drivers have no login, so the business service assigns by driver id,
+// while older callers still hold the user id. Vehicles carry both.
+func (s *FleetService) TrucksByDriver(ctx context.Context, companyID, driverID string) ([]Truck, error) {
 	filter := bson.M{
-		"deleted":             bson.M{"$ne": true},
-		"currentDriverUserId": driverUserID,
+		"deleted": bson.M{"$ne": true},
+		"$or": []bson.M{
+			{"currentDriverId": driverID},
+			{"currentDriverUserId": driverID},
+		},
 	}
 	if companyID != "" {
 		filter["companyId"] = companyID
@@ -223,8 +230,11 @@ func (s *FleetService) withDevices(ctx context.Context, companyID string, vehicl
 		if v.UnitYear != nil {
 			t.Year = *v.UnitYear
 		}
-		if v.CurrentDriverUserID != nil {
-			t.DriverIDs = append(t.DriverIDs, *v.CurrentDriverUserID)
+		// The master-data driver id, which is what an order is assigned to.
+		// The login user id used to be here; a driver's login is optional
+		// now and the business service resolves it from the driver record.
+		if v.CurrentDriverID != nil && *v.CurrentDriverID != "" {
+			t.DriverIDs = append(t.DriverIDs, *v.CurrentDriverID)
 		}
 
 		out = append(out, t)

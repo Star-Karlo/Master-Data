@@ -40,6 +40,10 @@ service MasterDataService {
   // incremental; deleted rows are included so a projection can retire them.
   rpc ListDrivers(ListDriversRequest) returns (ListDriversResponse);
 
+  // GetDriver resolves one driver by master-data id — the business service
+  // reads the phone and the optional login when it assigns work.
+  rpc GetDriver(GetDriverRequest) returns (GetDriverResponse);
+
   // GetTrucksByDriver supports the assign-driver flow in the business service,
   // which must know which trucks a driver is paired with.
   rpc GetTrucksByDriver(GetTrucksByDriverRequest) returns (GetTrucksByDriverResponse);
@@ -206,6 +210,14 @@ message ListDriversRequest {
 message ListDriversResponse {
   repeated Driver drivers = 1;
   int64 total = 2;
+}
+
+message GetDriverRequest {
+  string id = 1;
+}
+
+message GetDriverResponse {
+  Driver driver = 1;
 }
 
 message Driver {

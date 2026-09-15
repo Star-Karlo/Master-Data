@@ -18,12 +18,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/karlo/masterdata-service/internal/config"
+	"github.com/karlo/masterdata-service/internal/platform/cache"
 	"github.com/karlo/masterdata-service/internal/platform/query"
 )
 
@@ -166,10 +168,79 @@ func CatalogKinds() []string {
 type CatalogService struct {
 	db      *mongo.Database
 	writers map[string]writer
+	cache   cache.Cache
 }
 
-func NewCatalogService(db *mongo.Database) *CatalogService {
-	return &CatalogService{db: db, writers: newWriters(db)}
+// catalogTTL bounds how stale a catalogue read can be if an invalidation is
+// missed (a write from outside this service, say a migration script). Writes
+// through this service invalidate explicitly, so in practice a change is
+// visible on the next read.
+const catalogTTL = 15 * time.Minute
+
+func NewCatalogService(db *mongo.Database, c cache.Cache) *CatalogService {
+	if c == nil {
+		c = cache.NewNoop()
+	}
+	return &CatalogService{db: db, writers: newWriters(db), cache: c}
+}
+
+// catalogScope is the tenant segment of a cache key. See docs/shared/CACHING.md:
+// a key without it would let one company's read populate an entry another
+// company then receives, and the database's own scoping never gets a say
+// because the second request never reaches it. Platform staff see everything,
+// so their reads live under their own segment rather than any company's.
+func catalogScope(companyID string, platformStaff bool) string {
+	switch {
+	case platformStaff:
+		return "staff"
+	case companyID == "":
+		return "global"
+	default:
+		return companyID
+	}
+}
+
+func catalogEntryKey(scope, kind, id string) string {
+	return cache.Key("masterdata", "catalog", scope, kind, "id", id)
+}
+
+func catalogListKey(scope, kind, parentID string, p query.Params) string {
+	var b strings.Builder
+	b.WriteString(p.Search)
+	for _, f := range p.Filters {
+		fmt.Fprintf(&b, "|f:%s:%v:%s", f.Field, f.Operator, f.Value)
+	}
+	for _, so := range p.Sorts {
+		fmt.Fprintf(&b, "|s:%s:%t", so.Field, so.Desc)
+	}
+	if parentID == "" {
+		parentID = "-"
+	}
+	return cache.Key("masterdata", "catalog", scope, kind, "list", parentID,
+		fmt.Sprint(p.Page), fmt.Sprint(p.PageSize), cache.Fingerprint(b.String()))
+}
+
+// invalidate drops every cached read of a kind that a write could have
+// changed. A company's write touches only that company's listings and the
+// staff view; a global write (companyID empty) appears in every company's
+// listing, so it sweeps the kind across all scopes. Blunt, but a global
+// catalogue edit is rare, and serving the change to some tenants and not
+// others is worse than a moment of cache misses.
+func (s *CatalogService) invalidate(ctx context.Context, kind, companyID string, platformStaff bool) {
+	if platformStaff || companyID == "" {
+		// Staff may have written a global entry, which every scope lists;
+		// the kind sits after the scope in the key, so the sweep has to
+		// cover all of them.
+		s.cache.DeleteByPrefix(ctx, cache.Prefix("masterdata", "catalog"))
+		return
+	}
+	s.cache.DeleteByPrefix(ctx, cache.Prefix("masterdata", "catalog", companyID, kind))
+	s.cache.DeleteByPrefix(ctx, cache.Prefix("masterdata", "catalog", "staff", kind))
+}
+
+type cachedList struct {
+	Entries []CatalogEntry `json:"entries"`
+	Total   int64          `json:"total"`
 }
 
 // Writable reports whether a catalogue accepts writes, so a client can render
@@ -262,7 +333,11 @@ func (s *CatalogService) Create(ctx context.Context, kind, companyID string, pla
 			ErrValidation, kind)
 	}
 
-	return w.Create(ctx, owner, true, payload)
+	id, err := w.Create(ctx, owner, true, payload)
+	if err == nil {
+		s.invalidate(ctx, kind, companyID, platformStaff)
+	}
+	return id, err
 }
 
 // Update changes an entry the caller owns.
@@ -273,7 +348,11 @@ func (s *CatalogService) Update(ctx context.Context, kind, id, companyID string,
 	}
 	// Update scopes by the CALLER, never by the payload: which entries you may
 	// change is not a thing the request gets to say.
-	return w.Update(ctx, id, scopeForEdit(companyID, platformStaff), payload)
+	if err := w.Update(ctx, id, scopeForEdit(companyID, platformStaff), payload); err != nil {
+		return err
+	}
+	s.invalidate(ctx, kind, companyID, platformStaff)
+	return nil
 }
 
 // Delete retires an entry the caller owns.
@@ -282,7 +361,11 @@ func (s *CatalogService) Delete(ctx context.Context, kind, id, companyID string,
 	if !ok {
 		return fmt.Errorf("%w: %q is read-only", ErrValidation, kind)
 	}
-	return w.Delete(ctx, id, scopeForEdit(companyID, platformStaff))
+	if err := w.Delete(ctx, id, scopeForEdit(companyID, platformStaff)); err != nil {
+		return err
+	}
+	s.invalidate(ctx, kind, companyID, platformStaff)
+	return nil
 }
 
 // visibility is the scoping rule every reference list shares: a company sees
@@ -313,6 +396,12 @@ func (s *CatalogService) List(ctx context.Context, kind, companyID, parentID str
 	if !ok {
 		return nil, 0, fmt.Errorf("%w: %q (have: %s)", ErrUnknownKind, kind,
 			strings.Join(CatalogKinds(), ", "))
+	}
+
+	listKey := catalogListKey(catalogScope(companyID, platformStaff), kind, parentID, p)
+	var hit cachedList
+	if cache.GetJSON(ctx, s.cache, listKey, &hit) {
+		return hit.Entries, hit.Total, nil
 	}
 
 	filter := bson.M{"deleted": bson.M{"$ne": true}}
@@ -356,6 +445,7 @@ func (s *CatalogService) List(ctx context.Context, kind, companyID, parentID str
 	for _, doc := range raw {
 		out = append(out, toEntry(kind, doc))
 	}
+	cache.SetJSON(ctx, s.cache, listKey, cachedList{Entries: out, Total: total}, catalogTTL)
 	return out, total, nil
 }
 
@@ -374,6 +464,12 @@ func (s *CatalogService) Get(ctx context.Context, kind, id, companyID string, pl
 		return nil, ErrNotFound
 	}
 
+	entryKey := catalogEntryKey(catalogScope(companyID, platformStaff), kind, id)
+	var cached CatalogEntry
+	if cache.GetJSON(ctx, s.cache, entryKey, &cached) {
+		return &cached, nil
+	}
+
 	filter := bson.M{"_id": oid, "deleted": bson.M{"$ne": true}}
 	for k, v := range visibility(companyID, platformStaff) {
 		filter[k] = v
@@ -389,6 +485,7 @@ func (s *CatalogService) Get(ctx context.Context, kind, id, companyID string, pl
 	}
 
 	entry := toEntry(kind, doc)
+	cache.SetJSON(ctx, s.cache, entryKey, entry, catalogTTL)
 	return &entry, nil
 }
 

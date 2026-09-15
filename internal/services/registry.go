@@ -214,6 +214,18 @@ func (s *RegistryService) GetDriver(ctx context.Context, companyID, id string) (
 	return decodeOne[models.Driver](ctx, s.drivers.Collection(), scoped(companyID, o))
 }
 
+// GetDriverByID resolves a driver without a company clause. For the gRPC
+// edge only, where the caller is another platform service holding an id from
+// its own records and no tenant to assert; HTTP callers go through GetDriver
+// with the actor's company.
+func (s *RegistryService) GetDriverByID(ctx context.Context, id string) (*models.Driver, error) {
+	o, err := oid(id)
+	if err != nil {
+		return nil, err
+	}
+	return decodeOne[models.Driver](ctx, s.drivers.Collection(), bson.M{"_id": o, "deleted": bson.M{"$ne": true}})
+}
+
 func (s *RegistryService) CreateDriver(ctx context.Context, companyID string, in DriverInput) (*models.Driver, error) {
 	d := &models.Driver{CompanyID: companyID}
 	if err := in.apply(d); err != nil {

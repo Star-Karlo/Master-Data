@@ -22,7 +22,7 @@ func str(s string) *string { return &s }
 // another's pickers.
 func TestCatalogueScopingKeepsCompaniesApart(t *testing.T) {
 	db := testDB(t)
-	cat := services.NewCatalogService(db)
+	cat := services.NewCatalogService(db, nil)
 
 	if _, err := cat.Create(ctx(), "brand", "", true, map[string]any{"name": "Hino"}); err != nil {
 		t.Fatalf("staff create global: %v", err)
