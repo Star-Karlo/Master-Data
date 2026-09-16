@@ -125,7 +125,7 @@ variable "path_patterns" {
   # balancer, or the reverse — and neither failure appears until the environment
   # the path is missing from is exercised.
   type        = list(string)
-  default     = ["/api/v1/catalog*", "/api/v1/trucks*", "/api/v1/warehouses*", "/api/v1/trackers*", "/api/v1/customers*", "/api/v1/vehicles*", "/api/v1/drivers*", "/api/v1/documents*", "/api/v1/vehicle-groups*", "/api/v1/sites*"]
+  default     = ["/api/v1/catalog*", "/api/v1/trucks*", "/api/v1/warehouses*", "/api/v1/trackers*", "/api/v1/customers*", "/api/v1/vehicles*", "/api/v1/drivers*", "/api/v1/documents*", "/api/v1/sites*"]
 }
 
 variable "cors_allowed_origins" {

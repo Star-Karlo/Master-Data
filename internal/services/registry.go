@@ -33,7 +33,6 @@ type RegistryService struct {
 	vehicles    *repository.Store[models.Vehicle, *models.Vehicle]
 	trackers    *repository.Store[models.Tracker, *models.Tracker]
 	assignments *mongo.Collection
-	groups      *repository.Store[models.VehicleGroup, *models.VehicleGroup]
 	members     *mongo.Collection
 	documents   *repository.Store[models.Document, *models.Document]
 	models      *mongo.Collection
@@ -46,7 +45,6 @@ func NewRegistryService(db *mongo.Database) *RegistryService {
 		vehicles:    repository.NewStore[models.Vehicle](db),
 		trackers:    repository.NewStore[models.Tracker](db),
 		assignments: db.Collection(models.TrackerAssignment{}.CollectionName()),
-		groups:      repository.NewStore[models.VehicleGroup](db),
 		members:     db.Collection(models.VehicleGroupMember{}.CollectionName()),
 		documents:   repository.NewStore[models.Document](db),
 		models:      db.Collection(models.TrackerModel{}.CollectionName()),
@@ -1010,95 +1008,6 @@ func isNoTransactions(err error) bool {
 // Vehicle groups
 // ---------------------------------------------------------------------------
 
-type GroupInput struct {
-	Name        *string  `json:"name"`
-	Description *string  `json:"description"`
-	PICUserIDs  []string `json:"picUserIds"`
-}
-
-type GroupView struct {
-	models.VehicleGroup
-	MemberCount int64 `json:"memberCount"`
-}
-
-func (s *RegistryService) ListGroups(ctx context.Context, companyID string, p query.Params) ([]GroupView, int64, error) {
-	filter := bson.M{"companyId": companyID, "deleted": bson.M{"$ne": true}}
-	if p.Search != "" {
-		filter["nameNormalised"] = bson.M{"$regex": escapeRegex(normalise.Name(p.Search))}
-	}
-	groups, total, err := page[models.VehicleGroup](ctx, s.groups.Collection(), filter, p)
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]GroupView, 0, len(groups))
-	for _, g := range groups {
-		n, _ := s.members.CountDocuments(ctx, bson.M{"groupId": g.ID.Hex()})
-		out = append(out, GroupView{VehicleGroup: g, MemberCount: n})
-	}
-	return out, total, nil
-}
-
-func (s *RegistryService) findGroup(ctx context.Context, companyID, id string) (*models.VehicleGroup, error) {
-	o, err := oid(id)
-	if err != nil {
-		return nil, err
-	}
-	return decodeOne[models.VehicleGroup](ctx, s.groups.Collection(), scoped(companyID, o))
-}
-
-func (in GroupInput) apply(g *models.VehicleGroup) error {
-	if in.Name != nil {
-		g.Name = strings.TrimSpace(*in.Name)
-	}
-	if g.Name == "" {
-		return fmt.Errorf("%w: a group needs a name", ErrValidation)
-	}
-	str(&g.Description, in.Description)
-	if in.PICUserIDs != nil {
-		g.PICUserIDs = in.PICUserIDs
-	}
-	return nil
-}
-
-func (s *RegistryService) CreateGroup(ctx context.Context, companyID string, in GroupInput) (*GroupView, error) {
-	g := &models.VehicleGroup{CompanyID: companyID}
-	if err := in.apply(g); err != nil {
-		return nil, err
-	}
-	g.ID = primitive.NewObjectID()
-	if err := s.groups.Create(ctx, g); err != nil {
-		return nil, dup(err, "a group with that name already exists")
-	}
-	return &GroupView{VehicleGroup: *g}, nil
-}
-
-func (s *RegistryService) UpdateGroup(ctx context.Context, companyID, id string, in GroupInput) (*GroupView, error) {
-	g, err := s.findGroup(ctx, companyID, id)
-	if err != nil {
-		return nil, err
-	}
-	if err := in.apply(g); err != nil {
-		return nil, err
-	}
-	if err := s.groups.Update(ctx, g.ID, g); err != nil {
-		return nil, dup(err, "a group with that name already exists")
-	}
-	n, _ := s.members.CountDocuments(ctx, bson.M{"groupId": id})
-	return &GroupView{VehicleGroup: *g, MemberCount: n}, nil
-}
-
-func (s *RegistryService) DeleteGroup(ctx context.Context, companyID, id string) error {
-	g, err := s.findGroup(ctx, companyID, id)
-	if err != nil {
-		return err
-	}
-	if err := s.groups.SoftDelete(ctx, companyID, g.ID); err != nil {
-		return err
-	}
-	_, err = s.members.DeleteMany(ctx, bson.M{"groupId": id})
-	return err
-}
-
 func (s *RegistryService) memberVehicleIDs(ctx context.Context, companyID, groupID string) ([]primitive.ObjectID, error) {
 	ids, err := s.members.Distinct(ctx, "vehicleId", bson.M{"companyId": companyID, "groupId": groupID})
 	if err != nil {
@@ -1110,110 +1019,6 @@ func (s *RegistryService) memberVehicleIDs(ctx context.Context, companyID, group
 			if o, err := primitive.ObjectIDFromHex(h); err == nil {
 				out = append(out, o)
 			}
-		}
-	}
-	return out, nil
-}
-
-func (s *RegistryService) GroupMembers(ctx context.Context, companyID, groupID string, p query.Params) ([]VehicleView, int64, error) {
-	if _, err := s.findGroup(ctx, companyID, groupID); err != nil {
-		return nil, 0, err
-	}
-	return s.ListVehicles(ctx, companyID, p, "", nil, groupID)
-}
-
-// SetGroupMembers replaces the membership. Every id is checked against the
-// company's live vehicles first, so a typo cannot add a ghost.
-func (s *RegistryService) SetGroupMembers(ctx context.Context, companyID, groupID string, vehicleIDs []string, actorID string) error {
-	if _, err := s.findGroup(ctx, companyID, groupID); err != nil {
-		return err
-	}
-	valid, err := s.liveVehicleIDs(ctx, companyID, vehicleIDs)
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	docs := make([]interface{}, 0, len(valid))
-	for _, vid := range valid {
-		m := models.VehicleGroupMember{CompanyID: companyID, GroupID: groupID, VehicleID: vid, CreatedAt: now}
-		if actorID != "" {
-			a := actorID
-			m.AddedByUserID = &a
-		}
-		docs = append(docs, m)
-	}
-	return s.transact(ctx, func(ctx context.Context) error {
-		if _, err := s.members.DeleteMany(ctx, bson.M{"groupId": groupID}); err != nil {
-			return err
-		}
-		if len(docs) == 0 {
-			return nil
-		}
-		_, err := s.members.InsertMany(ctx, docs)
-		return err
-	})
-}
-
-func (s *RegistryService) AddGroupMember(ctx context.Context, companyID, groupID, vehicleID, actorID string) error {
-	if _, err := s.findGroup(ctx, companyID, groupID); err != nil {
-		return err
-	}
-	valid, err := s.liveVehicleIDs(ctx, companyID, []string{vehicleID})
-	if err != nil {
-		return err
-	}
-	if len(valid) == 0 {
-		return fmt.Errorf("%w: no such vehicle", ErrValidation)
-	}
-	m := models.VehicleGroupMember{CompanyID: companyID, GroupID: groupID, VehicleID: valid[0], CreatedAt: time.Now().UTC()}
-	if actorID != "" {
-		a := actorID
-		m.AddedByUserID = &a
-	}
-	if _, err := s.members.InsertOne(ctx, m); err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			return nil // already a member; the outcome the caller wanted
-		}
-		return err
-	}
-	return nil
-}
-
-func (s *RegistryService) RemoveGroupMember(ctx context.Context, companyID, groupID, vehicleID string) error {
-	res, err := s.members.DeleteOne(ctx, bson.M{"companyId": companyID, "groupId": groupID, "vehicleId": vehicleID})
-	if err != nil {
-		return err
-	}
-	if res.DeletedCount == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-func (s *RegistryService) liveVehicleIDs(ctx context.Context, companyID string, ids []string) ([]string, error) {
-	oids := make([]primitive.ObjectID, 0, len(ids))
-	for _, id := range ids {
-		o, err := primitive.ObjectIDFromHex(strings.TrimSpace(id))
-		if err != nil {
-			return nil, fmt.Errorf("%w: %q is not a vehicle id", ErrValidation, id)
-		}
-		oids = append(oids, o)
-	}
-	if len(oids) == 0 {
-		return []string{}, nil
-	}
-	found, err := s.vehicles.Collection().Distinct(ctx, "_id",
-		bson.M{"_id": bson.M{"$in": oids}, "companyId": companyID, "deleted": bson.M{"$ne": true}})
-	if err != nil {
-		return nil, err
-	}
-	if len(found) != len(oids) {
-		return nil, fmt.Errorf("%w: %d of the vehicles do not exist in this company", ErrValidation, len(oids)-len(found))
-	}
-	out := make([]string, 0, len(found))
-	for _, f := range found {
-		if o, ok := f.(primitive.ObjectID); ok {
-			out = append(out, o.Hex())
 		}
 	}
 	return out, nil
@@ -1343,20 +1148,4 @@ func (s *RegistryService) DeleteDocument(ctx context.Context, companyID, id stri
 		return err
 	}
 	return s.documents.SoftDelete(ctx, companyID, d.ID)
-}
-
-func (s *RegistryService) VerifyDocument(ctx context.Context, companyID, id, actorID string) (*models.Document, error) {
-	d, err := s.findDocument(ctx, companyID, id)
-	if err != nil {
-		return nil, err
-	}
-	d.IsVerified = true
-	if actorID != "" {
-		a := actorID
-		d.VerifiedByUserID = &a
-	}
-	if err := s.documents.Update(ctx, d.ID, d); err != nil {
-		return nil, err
-	}
-	return d, nil
 }

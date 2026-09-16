@@ -129,20 +129,10 @@ func Setup(d Deps) *gin.Engine {
 	api.POST("/trackers/:id/fit", any("tms:masterData.update", "fms:vehicles.edit", "fms:dashcams.manage"), r.Fit)
 	api.POST("/trackers/:id/unfit", any("tms:masterData.update", "fms:vehicles.edit", "fms:dashcams.manage"), r.Unfit)
 
-	api.GET("/vehicle-groups", any("tms:truck.read", "fms:vehicles.view"), r.ListGroups)
-	api.POST("/vehicle-groups", any("tms:truck.create", "fms:vehicles.edit"), r.CreateGroup)
-	api.PUT("/vehicle-groups/:id", any("tms:truck.update", "fms:vehicles.edit"), r.UpdateGroup)
-	api.DELETE("/vehicle-groups/:id", any("tms:truck.delete", "fms:vehicles.edit"), r.DeleteGroup)
-	api.GET("/vehicle-groups/:id/members", any("tms:truck.read", "fms:vehicles.view"), r.GroupMembers)
-	api.PUT("/vehicle-groups/:id/members", any("tms:truck.update", "fms:vehicles.edit"), r.SetGroupMembers)
-	api.POST("/vehicle-groups/:id/members", any("tms:truck.update", "fms:vehicles.edit"), r.AddGroupMember)
-	api.DELETE("/vehicle-groups/:id/members/:vehicleId", any("tms:truck.update", "fms:vehicles.edit"), r.RemoveGroupMember)
-
 	api.GET("/documents", any("tms:truck.read", "fms:vehicles.view", "fms:drivers.view"), r.ListDocuments)
 	api.POST("/documents", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.CreateDocument)
 	api.PUT("/documents/:id", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.UpdateDocument)
 	api.DELETE("/documents/:id", any("tms:truck.update", "fms:vehicles.edit", "fms:drivers.edit"), r.DeleteDocument)
-	api.POST("/documents/:id/verify", any("tms:masterData.update", "fms:vehicles.edit"), r.VerifyDocument)
 
 	return router
 }
