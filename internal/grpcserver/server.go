@@ -40,19 +40,24 @@ func New(catalog *services.CatalogService, fleet *services.FleetService, registr
 }
 
 // kindNames maps the proto enum onto the names the services package uses.
-//
-// Only the kinds this model actually has are present. The enum still carries
-// entries from the previous model — CATALOG_KIND_TRUCK_TYPE, KOTA, PROVINSI and
-// the rest — and they are deliberately unmapped: answering one of them with a
-// plausible substitute would return the wrong list and look right. An unmapped
-// kind is refused by name, which is a failure someone can act on.
+// Kinds the model does not serve (rate cards, routes, FAQ, vacancies) stay
+// unmapped and are refused by name rather than answered with a substitute.
 var kindNames = map[masterdatav1.CatalogKind]string{
-	masterdatav1.CatalogKind_CATALOG_KIND_BRAND:      "brand",
-	masterdatav1.CatalogKind_CATALOG_KIND_CARGO_TYPE: "cargoType",
-	masterdatav1.CatalogKind_CATALOG_KIND_ITEM:       "item",
-	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_TYPE:  "itemSubCategory",
-	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_HEAD: "truckHead",
-	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_BODY: "truckBody",
+	masterdatav1.CatalogKind_CATALOG_KIND_BRAND:          "brand",
+	masterdatav1.CatalogKind_CATALOG_KIND_CARGO_TYPE:     "cargoType",
+	masterdatav1.CatalogKind_CATALOG_KIND_ITEM:           "item",
+	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_TYPE:      "itemType",
+	masterdatav1.CatalogKind_CATALOG_KIND_ITEM_CHARACTER: "itemCharacter",
+	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_HEAD:     "truckHead",
+	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_BODY:     "truckBody",
+	masterdatav1.CatalogKind_CATALOG_KIND_TRUCK_TYPE:     "truckType",
+	masterdatav1.CatalogKind_CATALOG_KIND_PRICING_TYPE:   "pricingType",
+	masterdatav1.CatalogKind_CATALOG_KIND_PAYMENT_TYPE:   "paymentType",
+	masterdatav1.CatalogKind_CATALOG_KIND_CURRENCY:       "currency",
+	masterdatav1.CatalogKind_CATALOG_KIND_REQUIREMENT:    "requirement",
+	masterdatav1.CatalogKind_CATALOG_KIND_PROVINSI:       "provinsi",
+	masterdatav1.CatalogKind_CATALOG_KIND_KOTA:           "kota",
+	masterdatav1.CatalogKind_CATALOG_KIND_DISTRICT:       "district",
 }
 
 func kindName(k masterdatav1.CatalogKind) (string, error) {

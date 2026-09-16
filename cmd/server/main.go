@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/karlo/masterdata-service/internal/platform/grpcutil"
 	"github.com/karlo/masterdata-service/internal/platform/logger"
 	"github.com/karlo/masterdata-service/internal/routes"
+	"github.com/karlo/masterdata-service/internal/seed"
 	"github.com/karlo/masterdata-service/internal/services"
 )
 
@@ -57,6 +59,17 @@ func run() error {
 	db, err := config.ConnectMongo(cfg)
 	if err != nil {
 		return err
+	}
+
+	// `server seed [--dry-run]`: load the Karlo-maintained reference lists
+	// from /seed/catalog.json (SEED_FILE overrides). Idempotent; run as a
+	// one-off task after a deploy that changes the file.
+	if slices.Contains(os.Args[1:], "seed") {
+		path := os.Getenv("SEED_FILE")
+		if path == "" {
+			path = "/seed/catalog.json"
+		}
+		return seed.Run(context.Background(), db, path, slices.Contains(os.Args[1:], "--dry-run"))
 	}
 
 	verifier, err := authctx.NewVerifierFromEnv()

@@ -111,12 +111,9 @@ type kindSpec struct {
 // catalogKinds is every reference list this service serves, by the name callers
 // already use.
 //
-// Names that the OLD model had and this one does not are absent rather than
-// faked. `truckType` in particular: the previous model had one list of truck
-// types, and the current one splits the question into truck heads and truck
-// bodies because a rigid truck has a body and no head. Returning one of them
-// under the old name would answer plausibly and wrongly, so the name is
-// refused and the caller has to say which it means.
+// The fleet is modelled as truck heads and bodies (a rigid truck has a body
+// and no head); the reference lists below the device catalogues are what the
+// commercial forms price and describe cargo in.
 var catalogKinds = map[string]kindSpec{
 	"brand":        {collection: "brands", owned: true, shareable: true},
 	"cargoType":    {collection: "cargo_types", owned: true, shareable: true},
@@ -148,6 +145,28 @@ var catalogKinds = map[string]kindSpec{
 	// sharing is refused.
 	"trackerModel": {collection: "tracker_models", requiredFields: []string{"vendor", "model"}},
 	"sensorType":   {collection: "sensor_types", requiredFields: []string{"code", "name"}},
+
+	// Karlo-maintained reference lists the agreement and order forms are
+	// built on: how a lane is priced, how it is paid, in what currency, what
+	// kind of cargo, and the Indonesian administrative geography a city-to-
+	// city rate names. Global, read-only through the API, loaded from
+	// seed/catalog.json by `server seed`. They were left out of the rewrite
+	// on the argument that the new model does not use them; the forms do,
+	// and an agreement could not be created without them.
+	//
+	// truckType is the flat list the old model priced by. The fleet itself
+	// is modelled as heads and bodies; a rate card still names a truck type
+	// because that is how a shipper and a transporter talk about price.
+	"truckType":     {collection: "truck_types"},
+	"itemType":      {collection: "item_types"},
+	"itemCharacter": {collection: "item_characters"},
+	"pricingType":   {collection: "pricing_types"},
+	"paymentType":   {collection: "payment_types"},
+	"currency":      {collection: "currencies"},
+	"requirement":   {collection: "requirements"},
+	"provinsi":      {collection: "provinces"},
+	"kota":          {collection: "cities", parentField: "provinceId"},
+	"district":      {collection: "districts", parentField: "cityId"},
 }
 
 // Shareable reports whether a catalogue accepts platform-global entries, so a
