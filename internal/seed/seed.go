@@ -30,6 +30,7 @@ var collections = map[string]string{
 	"truckType":     "truck_types",
 	"truckBody":     "truck_bodies",
 	"truckHead":     "truck_heads",
+	"truckClass":    "truck_classes",
 	"brand":         "brands",
 	"cargoType":     "cargo_types",
 	"itemType":      "item_types",

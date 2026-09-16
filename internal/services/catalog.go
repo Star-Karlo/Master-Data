@@ -124,7 +124,11 @@ var catalogKinds = map[string]kindSpec{
 	// do not have — so filtering a hierarchy by its parent matched nothing and
 	// returned an empty list rather than an error.
 	"itemSubCategory": {collection: "item_sub_categories", owned: true, parentField: "categoryId", parentRequired: true, shareable: true},
-	"item":            {collection: "items", owned: true, parentField: "subCategoryId"},
+	// Items hang off a cargo type: the console shows the two as one taxonomy
+	// (a cargo type on the left, its items on the right). Category and
+	// sub-category are kept on the document for companies that still use
+	// them, but they are no longer the hierarchy the API filters by.
+	"item":            {collection: "items", owned: true, parentField: "cargoTypeId"},
 
 	"truckHead":  {collection: "truck_heads", owned: true, shareable: true},
 	"truckBody":  {collection: "truck_bodies", owned: true, shareable: true},
