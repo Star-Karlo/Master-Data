@@ -128,7 +128,7 @@ var catalogKinds = map[string]kindSpec{
 	// (a cargo type on the left, its items on the right). Category and
 	// sub-category are kept on the document for companies that still use
 	// them, but they are no longer the hierarchy the API filters by.
-	"item":            {collection: "items", owned: true, parentField: "cargoTypeId"},
+	"item": {collection: "items", owned: true, parentField: "cargoTypeId"},
 
 	"truckHead":  {collection: "truck_heads", owned: true, shareable: true},
 	"truckBody":  {collection: "truck_bodies", owned: true, shareable: true},
