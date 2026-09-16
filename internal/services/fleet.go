@@ -72,8 +72,11 @@ type Truck struct {
 type Warehouse struct {
 	ID        string `json:"id"`
 	CompanyID string `json:"companyId"`
-	Name      string `json:"name"`
-	Address   string `json:"address,omitempty"`
+	// CustomerCompanyID: the customer this warehouse belongs to, when a
+	// transporter registers customers' sites; empty for its own.
+	CustomerCompanyID string `json:"customerCompanyId,omitempty"`
+	Name              string `json:"name"`
+	Address           string `json:"address,omitempty"`
 
 	// City and District are NAMES, not ids. There is no region table in this
 	// model — see the Site comment — so an id here would reference nothing.
@@ -104,6 +107,17 @@ func haulingUnits() bson.M {
 // ListTrucks pages a company's assignable vehicles.
 func (s *FleetService) ListTrucks(ctx context.Context, companyID string, p query.Params, availableOnly bool) ([]Truck, int64, error) {
 	filter := bson.M{"companyId": companyID, "deleted": bson.M{"$ne": true}}
+	// ?customerCompanyId=<id> narrows to one customer's sites; "own" to the
+	// company's own (no customer).
+	for _, f := range p.Filters {
+		if f.Field == "customerCompanyId" {
+			if f.Value == "own" {
+				filter["customerCompanyId"] = bson.M{"$in": bson.A{nil, ""}}
+			} else {
+				filter["customerCompanyId"] = f.Value
+			}
+		}
+	}
 	for k, v := range haulingUnits() {
 		filter[k] = v
 	}
@@ -328,16 +342,17 @@ func (s *FleetService) GetWarehouse(ctx context.Context, companyID, id string) (
 
 func toWarehouse(site models.Site) Warehouse {
 	w := Warehouse{
-		ID:        site.ID.Hex(),
-		CompanyID: site.CompanyID,
-		Name:      site.Name,
-		Address:   deref(site.Address),
-		City:      deref(site.City),
-		District:  deref(site.District),
-		Province:  deref(site.Province),
-		PICPhone:  deref(site.SitePICPhone),
-		CreatedAt: site.CreatedAt,
-		UpdatedAt: site.UpdatedAt,
+		ID:                site.ID.Hex(),
+		CompanyID:         site.CompanyID,
+		Name:              site.Name,
+		Address:           deref(site.Address),
+		City:              deref(site.City),
+		District:          deref(site.District),
+		Province:          deref(site.Province),
+		PICPhone:          deref(site.SitePICPhone),
+		CustomerCompanyID: deref(site.CustomerCompanyID),
+		CreatedAt:         site.CreatedAt,
+		UpdatedAt:         site.UpdatedAt,
 	}
 
 	// GeoJSON order: coordinates are [longitude, latitude]. Transposing them

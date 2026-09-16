@@ -963,6 +963,10 @@ type Site struct {
 	SitePICPhone *string  `bson:"sitePicPhone" json:"sitePicPhone,omitempty"`
 	Notes        *string  `bson:"notes" json:"notes,omitempty"`
 	PICUserIDs   []string `bson:"picUserIds" json:"picUserIds"`
+	// CustomerCompanyID says whose site this is when a transporter keeps
+	// its customers' warehouses in its own register (MyWarehouse groups
+	// them per customer). Empty for the company's own sites.
+	CustomerCompanyID *string `bson:"customerCompanyId" json:"customerCompanyId,omitempty"`
 
 	IsActive   bool                   `bson:"isActive" json:"isActive"`
 	Attributes map[string]interface{} `bson:"attributes,omitempty" json:"attributes,omitempty"`

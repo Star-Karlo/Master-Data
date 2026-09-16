@@ -359,9 +359,10 @@ var truckFields = query.FieldSet{
 }
 
 var warehouseFields = query.FieldSet{
-	"name":      "name",
-	"city":      "city",
-	"createdAt": "createdAt",
+	"name":              "name",
+	"city":              "city",
+	"createdAt":         "createdAt",
+	"customerCompanyId": "customerCompanyId",
 }
 
 // ListTrucks pages the company's assignable vehicles.
@@ -469,6 +470,8 @@ type warehouseRequest struct {
 	PICName  string `json:"picName"`
 	PICPhone string `json:"picPhone"`
 	Notes    string `json:"notes"`
+	// The customer this site belongs to (MyWarehouse groups per customer).
+	CustomerCompanyID *string `json:"customerCompanyId"`
 }
 
 func (r warehouseRequest) toInput() services.SiteInput {
@@ -479,6 +482,7 @@ func (r warehouseRequest) toInput() services.SiteInput {
 		Latitude: r.Latitude, Longitude: r.Longitude,
 		GeofenceRadiusM: r.GeofenceRadiusMeters,
 		PICName:         r.PICName, PICPhone: r.PICPhone, Notes: r.Notes,
+		CustomerCompanyID: r.CustomerCompanyID,
 	}
 }
 

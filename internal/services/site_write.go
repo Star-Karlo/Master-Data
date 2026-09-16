@@ -46,6 +46,9 @@ type SiteInput struct {
 	PICPhone string
 	PICName  string
 	Notes    string
+	// CustomerCompanyID is the customer this site belongs to, or "" for
+	// the company's own. Sent as "" on update to clear.
+	CustomerCompanyID *string
 }
 
 // DefaultGeofenceRadiusM is used when a site does not set its own.
@@ -78,6 +81,9 @@ func (s *FleetService) CreateSite(ctx context.Context, companyID string, in Site
 	setOptional(&site.Postcode, in.Postcode)
 	setOptional(&site.SitePICPhone, in.PICPhone)
 	setOptional(&site.Notes, in.Notes)
+	if in.CustomerCompanyID != nil {
+		site.CustomerCompanyID = nilIfBlank(*in.CustomerCompanyID)
+	}
 
 	point, err := geoPoint(in.Latitude, in.Longitude)
 	if err != nil {
@@ -231,4 +237,12 @@ func setOptional(target **string, value string) {
 		return
 	}
 	*target = &trimmed
+}
+
+func nilIfBlank(v string) *string {
+	trimmed := strings.TrimSpace(v)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
