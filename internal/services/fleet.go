@@ -107,17 +107,6 @@ func haulingUnits() bson.M {
 // ListTrucks pages a company's assignable vehicles.
 func (s *FleetService) ListTrucks(ctx context.Context, companyID string, p query.Params, availableOnly bool) ([]Truck, int64, error) {
 	filter := bson.M{"companyId": companyID, "deleted": bson.M{"$ne": true}}
-	// ?customerCompanyId=<id> narrows to one customer's sites; "own" to the
-	// company's own (no customer).
-	for _, f := range p.Filters {
-		if f.Field == "customerCompanyId" {
-			if f.Value == "own" {
-				filter["customerCompanyId"] = bson.M{"$in": bson.A{nil, ""}}
-			} else {
-				filter["customerCompanyId"] = f.Value
-			}
-		}
-	}
 	for k, v := range haulingUnits() {
 		filter[k] = v
 	}
@@ -287,6 +276,19 @@ func (s *FleetService) findVehicle(ctx context.Context, companyID, id string) (*
 // ListWarehouses pages a company's sites.
 func (s *FleetService) ListWarehouses(ctx context.Context, companyID string, p query.Params) ([]Warehouse, int64, error) {
 	filter := bson.M{"companyId": companyID, "deleted": bson.M{"$ne": true}}
+	// ?customerCompanyId=<id> narrows to one customer's sites; "own" to the
+	// company's own (no customer). This lived on the truck list by mistake,
+	// where nothing sends it, so MyWarehouse showed every site under every
+	// customer.
+	for _, f := range p.Filters {
+		if f.Field == "customerCompanyId" {
+			if f.Value == "own" {
+				filter["customerCompanyId"] = bson.M{"$in": bson.A{nil, ""}}
+			} else {
+				filter["customerCompanyId"] = f.Value
+			}
+		}
+	}
 	if p.Search != "" {
 		filter["nameNormalised"] = bson.M{"$regex": "^" + escapeRegex(normalise.Name(p.Search))}
 	}
