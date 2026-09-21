@@ -12,6 +12,7 @@ package grpcserver
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -262,10 +263,20 @@ func (s *Server) ListTrucks(ctx context.Context, req *masterdatav1.ListTrucksReq
 		}
 	}
 
+	// Timed, because FMS's fleet projection pages through this per company
+	// and a slow page shows up there as a hung sync with nothing to blame.
+	started := time.Now()
 	trucks, total, err := s.fleet.ListTrucks(ctx, req.GetCompanyId(), p, availableOnly)
+	elapsed := time.Since(started)
 	if err != nil {
+		slog.WarnContext(ctx, "grpc ListTrucks failed", "company", req.GetCompanyId(), "page", p.Page, "pageSize", p.PageSize, "ms", elapsed.Milliseconds(), "error", err)
 		return nil, mapError(err)
 	}
+	logLevel := slog.LevelDebug
+	if elapsed > 2*time.Second {
+		logLevel = slog.LevelWarn
+	}
+	slog.Log(ctx, logLevel, "grpc ListTrucks", "company", req.GetCompanyId(), "page", p.Page, "pageSize", p.PageSize, "rows", len(trucks), "total", total, "ms", elapsed.Milliseconds())
 
 	out := make([]*masterdatav1.Truck, 0, len(trucks))
 	for _, t := range trucks {
