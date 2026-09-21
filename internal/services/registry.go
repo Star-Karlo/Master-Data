@@ -798,6 +798,7 @@ func (s *RegistryService) CreateTracker(ctx context.Context, companyID string, s
 	if err := s.trackers.Create(ctx, t); err != nil {
 		return nil, dup(err, "a device with that id is already registered")
 	}
+	s.announce(ctx, "tracker", companyID, t.ID.Hex(), "create")
 	return s.GetTracker(ctx, companyID, t.ID.Hex())
 }
 
@@ -815,6 +816,7 @@ func (s *RegistryService) UpdateTracker(ctx context.Context, companyID, id strin
 	if err := s.trackers.Update(ctx, t.ID, t); err != nil {
 		return nil, dup(err, "a device with that id is already registered")
 	}
+	s.announce(ctx, "tracker", companyID, id, "update")
 	return s.GetTracker(ctx, companyID, id)
 }
 
@@ -850,7 +852,11 @@ func (s *RegistryService) DeleteTracker(ctx context.Context, companyID, id strin
 	if open > 0 {
 		return fmt.Errorf("%w: this device is fitted to a vehicle; unfit it first", ErrConflict)
 	}
-	return s.trackers.SoftDelete(ctx, "", t.ID)
+	if err := s.trackers.SoftDelete(ctx, "", t.ID); err != nil {
+		return err
+	}
+	s.announce(ctx, "tracker", companyID, id, "delete")
+	return nil
 }
 
 type FitInput struct {
@@ -956,6 +962,9 @@ func (s *RegistryService) Fit(ctx context.Context, companyID, trackerID string, 
 	if err := s.transact(ctx, run); err != nil {
 		return nil, err
 	}
+	// A fitting changes both the device and the vehicle it now reports for.
+	s.announce(ctx, "tracker", companyID, trackerID, "fit")
+	s.announce(ctx, "vehicle", companyID, in.VehicleID, "update")
 	return assignment, nil
 }
 
@@ -973,7 +982,13 @@ func (s *RegistryService) Unfit(ctx context.Context, companyID, trackerID string
 		at = in.UnfittedAt.UTC()
 	}
 	tid := t.ID.Hex()
-	return s.transact(ctx, func(ctx context.Context) error {
+	// Which vehicle it comes off, for the change notice.
+	vehicleID := ""
+	var open models.TrackerAssignment
+	if err := s.assignments.FindOne(ctx, bson.M{"trackerId": tid, "unfittedAt": nil}).Decode(&open); err == nil {
+		vehicleID = open.VehicleID
+	}
+	err = s.transact(ctx, func(ctx context.Context) error {
 		res, err := s.assignments.UpdateMany(ctx,
 			bson.M{"trackerId": tid, "unfittedAt": nil},
 			bson.M{"$set": bson.M{"unfittedAt": at}})
@@ -990,6 +1005,14 @@ func (s *RegistryService) Unfit(ctx context.Context, companyID, trackerID string
 		}
 		return err
 	})
+	if err != nil {
+		return err
+	}
+	s.announce(ctx, "tracker", companyID, trackerID, "unfit")
+	if vehicleID != "" {
+		s.announce(ctx, "vehicle", companyID, vehicleID, "update")
+	}
+	return nil
 }
 
 func (s *RegistryService) Assignments(ctx context.Context, companyID, trackerID string) ([]models.TrackerAssignment, error) {
