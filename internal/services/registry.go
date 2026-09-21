@@ -596,17 +596,22 @@ func (s *RegistryService) DeleteVehicle(ctx context.Context, companyID, id strin
 // ---------------------------------------------------------------------------
 
 type TrackerInput struct {
-	Kind        *string                `json:"kind"`
-	DeviceID    *string                `json:"deviceId"`
-	IMEI        *string                `json:"imei"` // accepted as an alias of deviceId for gps
-	ICCID       *string                `json:"iccid"`
-	SIMProvider *string                `json:"simProvider"`
-	PhoneNo     *string                `json:"phoneNo"`
-	ModelID     *string                `json:"modelId"`
-	Owner       *string                `json:"owner"`
-	OwnerName   *string                `json:"ownerName"`
-	Status      *string                `json:"status"`
-	Attributes  map[string]interface{} `json:"attributes"`
+	Kind        *string `json:"kind"`
+	DeviceID    *string `json:"deviceId"`
+	IMEI        *string `json:"imei"` // accepted as an alias of deviceId for gps
+	ICCID       *string `json:"iccid"`
+	SIMProvider *string `json:"simProvider"`
+	PhoneNo     *string `json:"phoneNo"`
+	ModelID     *string `json:"modelId"`
+	// CompanyID moves a device between Karlo's stock and a company (or
+	// between companies). Platform staff only; ignored for everyone else.
+	// This is how the backfilled stock is handed to the companies that
+	// actually run the devices.
+	CompanyID  *string                `json:"companyId"`
+	Owner      *string                `json:"owner"`
+	OwnerName  *string                `json:"ownerName"`
+	Status     *string                `json:"status"`
+	Attributes map[string]interface{} `json:"attributes"`
 }
 
 // TrackerView is a device with where it currently is.
@@ -805,12 +810,32 @@ func (s *RegistryService) CreateTracker(ctx context.Context, companyID string, s
 }
 
 func (s *RegistryService) UpdateTracker(ctx context.Context, companyID, id string, in TrackerInput) (*TrackerView, error) {
+	return s.updateTracker(ctx, companyID, id, in, false)
+}
+
+// UpdateTrackerAsStaff is UpdateTracker for platform staff: the device is
+// found regardless of company, and in.CompanyID may re-own it.
+func (s *RegistryService) UpdateTrackerAsStaff(ctx context.Context, id string, in TrackerInput) (*TrackerView, error) {
+	return s.updateTracker(ctx, "", id, in, true)
+}
+
+func (s *RegistryService) updateTracker(ctx context.Context, companyID, id string, in TrackerInput, staff bool) (*TrackerView, error) {
 	t, err := s.findTracker(ctx, companyID, id)
 	if err != nil {
 		return nil, err
 	}
 	if err := in.apply(t, false); err != nil {
 		return nil, err
+	}
+	if staff && in.CompanyID != nil {
+		if c := strings.TrimSpace(*in.CompanyID); c == "" {
+			t.CompanyID = nil
+		} else {
+			t.CompanyID = &c
+		}
+		if t.CompanyID != nil {
+			companyID = *t.CompanyID
+		}
 	}
 	if err := s.checkModel(ctx, t); err != nil {
 		return nil, err
@@ -819,6 +844,9 @@ func (s *RegistryService) UpdateTracker(ctx context.Context, companyID, id strin
 		return nil, dup(err, "a device with that id is already registered")
 	}
 	s.announce(ctx, "tracker", companyID, id, "update")
+	if staff {
+		return s.GetTracker(ctx, "", id)
+	}
 	return s.GetTracker(ctx, companyID, id)
 }
 

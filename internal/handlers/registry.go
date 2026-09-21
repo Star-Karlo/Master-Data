@@ -415,7 +415,7 @@ func (h *RegistryHandler) CreateTracker(c *gin.Context) {
 // @Success  200 {object} services.TrackerView
 // @Router   /trackers/{id} [put]
 func (h *RegistryHandler) UpdateTracker(c *gin.Context) {
-	companyID, _, ok := trackerScope(c)
+	companyID, staff, ok := trackerScope(c)
 	if !ok {
 		return
 	}
@@ -424,7 +424,17 @@ func (h *RegistryHandler) UpdateTracker(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	t, err := h.reg.UpdateTracker(c.Request.Context(), companyID, c.Param("id"), in)
+	var (
+		t   *services.TrackerView
+		err error
+	)
+	// Staff acting for nobody may reach any device and re-own it.
+	if staff && companyID == "" {
+		t, err = h.reg.UpdateTrackerAsStaff(c.Request.Context(), c.Param("id"), in)
+	} else {
+		in.CompanyID = nil
+		t, err = h.reg.UpdateTracker(c.Request.Context(), companyID, c.Param("id"), in)
+	}
 	if err != nil {
 		writeRegistryError(c, err)
 		return
