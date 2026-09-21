@@ -25,6 +25,7 @@ const (
 	MasterDataService_ValidateReferences_FullMethodName  = "/karlo.masterdata.v1.MasterDataService/ValidateReferences"
 	MasterDataService_GetTruck_FullMethodName            = "/karlo.masterdata.v1.MasterDataService/GetTruck"
 	MasterDataService_ListTrucks_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/ListTrucks"
+	MasterDataService_ListTrackers_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/ListTrackers"
 	MasterDataService_ListDrivers_FullMethodName         = "/karlo.masterdata.v1.MasterDataService/ListDrivers"
 	MasterDataService_GetDriver_FullMethodName           = "/karlo.masterdata.v1.MasterDataService/GetDriver"
 	MasterDataService_GetTrucksByDriver_FullMethodName   = "/karlo.masterdata.v1.MasterDataService/GetTrucksByDriver"
@@ -60,6 +61,10 @@ type MasterDataServiceClient interface {
 	ValidateReferences(ctx context.Context, in *ValidateReferencesRequest, opts ...grpc.CallOption) (*ValidateReferencesResponse, error)
 	GetTruck(ctx context.Context, in *GetTruckRequest, opts ...grpc.CallOption) (*GetTruckResponse, error)
 	ListTrucks(ctx context.Context, in *ListTrucksRequest, opts ...grpc.CallOption) (*ListTrucksResponse, error)
+	// ListTrackers pages a company's telematics devices (GPS and dashcams)
+	// with where each is fitted now. Master data owns the device register and
+	// the fit history; FMS projects this into its own tables.
+	ListTrackers(ctx context.Context, in *ListTrackersRequest, opts ...grpc.CallOption) (*ListTrackersResponse, error)
 	// ListDrivers pages a company's driver register, for a service that keeps
 	// a projection of it — FMS's driversync. updated_since makes it
 	// incremental; deleted rows are included so a projection can retire them.
@@ -136,6 +141,16 @@ func (c *masterDataServiceClient) ListTrucks(ctx context.Context, in *ListTrucks
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTrucksResponse)
 	err := c.cc.Invoke(ctx, MasterDataService_ListTrucks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterDataServiceClient) ListTrackers(ctx context.Context, in *ListTrackersRequest, opts ...grpc.CallOption) (*ListTrackersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTrackersResponse)
+	err := c.cc.Invoke(ctx, MasterDataService_ListTrackers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -220,6 +235,10 @@ type MasterDataServiceServer interface {
 	ValidateReferences(context.Context, *ValidateReferencesRequest) (*ValidateReferencesResponse, error)
 	GetTruck(context.Context, *GetTruckRequest) (*GetTruckResponse, error)
 	ListTrucks(context.Context, *ListTrucksRequest) (*ListTrucksResponse, error)
+	// ListTrackers pages a company's telematics devices (GPS and dashcams)
+	// with where each is fitted now. Master data owns the device register and
+	// the fit history; FMS projects this into its own tables.
+	ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error)
 	// ListDrivers pages a company's driver register, for a service that keeps
 	// a projection of it — FMS's driversync. updated_since makes it
 	// incremental; deleted rows are included so a projection can retire them.
@@ -259,6 +278,9 @@ func (UnimplementedMasterDataServiceServer) GetTruck(context.Context, *GetTruckR
 }
 func (UnimplementedMasterDataServiceServer) ListTrucks(context.Context, *ListTrucksRequest) (*ListTrucksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTrucks not implemented")
+}
+func (UnimplementedMasterDataServiceServer) ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTrackers not implemented")
 }
 func (UnimplementedMasterDataServiceServer) ListDrivers(context.Context, *ListDriversRequest) (*ListDriversResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDrivers not implemented")
@@ -404,6 +426,24 @@ func _MasterDataService_ListTrucks_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MasterDataService_ListTrackers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTrackersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterDataServiceServer).ListTrackers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MasterDataService_ListTrackers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterDataServiceServer).ListTrackers(ctx, req.(*ListTrackersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MasterDataService_ListDrivers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListDriversRequest)
 	if err := dec(in); err != nil {
@@ -524,6 +564,10 @@ var MasterDataService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTrucks",
 			Handler:    _MasterDataService_ListTrucks_Handler,
+		},
+		{
+			MethodName: "ListTrackers",
+			Handler:    _MasterDataService_ListTrackers_Handler,
 		},
 		{
 			MethodName: "ListDrivers",

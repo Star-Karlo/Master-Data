@@ -601,6 +601,7 @@ type TrackerInput struct {
 	IMEI        *string                `json:"imei"` // accepted as an alias of deviceId for gps
 	ICCID       *string                `json:"iccid"`
 	SIMProvider *string                `json:"simProvider"`
+	PhoneNo     *string                `json:"phoneNo"`
 	ModelID     *string                `json:"modelId"`
 	Owner       *string                `json:"owner"`
 	OwnerName   *string                `json:"ownerName"`
@@ -736,6 +737,7 @@ func (in TrackerInput) apply(t *models.Tracker, creating bool) error {
 	}
 	str(&t.ICCID, in.ICCID)
 	str(&t.SIMProvider, in.SIMProvider)
+	str(&t.PhoneNo, in.PhoneNo)
 	str(&t.ModelID, in.ModelID)
 	str(&t.OwnerName, in.OwnerName)
 	if in.Owner != nil {

@@ -737,6 +737,9 @@ type Tracker struct {
 	// does not — a number is reassigned, an ICCID identifies the card.
 	ICCID       *string `bson:"iccid" json:"iccid,omitempty"`
 	SIMProvider *string `bson:"simProvider" json:"simProvider,omitempty"`
+	// PhoneNo is the SIM's MSISDN — how the device is reached for SMS
+	// commands. FMS keeps it per device; kept here so the two agree.
+	PhoneNo *string `bson:"phoneNo" json:"phoneNo,omitempty"`
 
 	// The model, always by reference. A free-text name sat beside this for
 	// devices not yet catalogued, and it was the wrong answer: two spellings of

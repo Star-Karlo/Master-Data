@@ -285,6 +285,56 @@ func (s *Server) ListTrucks(ctx context.Context, req *masterdatav1.ListTrucksReq
 	return &masterdatav1.ListTrucksResponse{Trucks: out, PageInfo: pageInfo(p, total)}, nil
 }
 
+// ListTrackers pages a company's devices with their current fitting. FMS
+// projects this into its own device tables; the empty company id lists
+// Karlo's own stock, which a service caller may see.
+func (s *Server) ListTrackers(ctx context.Context, req *masterdatav1.ListTrackersRequest) (*masterdatav1.ListTrackersResponse, error) {
+	p := query.FromProto(req.GetQuery(), trackerFields)
+	if p.Err != nil {
+		return nil, status.Error(codes.InvalidArgument, p.Err.Error())
+	}
+	started := time.Now()
+	rows, total, err := s.registry.ListTrackers(ctx, req.GetCompanyId(), p, req.GetKind(), nil, "")
+	if err != nil {
+		return nil, mapError(err)
+	}
+	slog.DebugContext(ctx, "grpc ListTrackers", "company", req.GetCompanyId(), "kind", req.GetKind(), "page", p.Page, "rows", len(rows), "total", total, "ms", time.Since(started).Milliseconds())
+	out := make([]*masterdatav1.Tracker, 0, len(rows))
+	for _, t := range rows {
+		out = append(out, toProtoTracker(t))
+	}
+	return &masterdatav1.ListTrackersResponse{Trackers: out, PageInfo: pageInfo(p, total)}, nil
+}
+
+func toProtoTracker(t services.TrackerView) *masterdatav1.Tracker {
+	out := &masterdatav1.Tracker{
+		Id:               t.ID.Hex(),
+		CompanyId:        deref(t.CompanyID),
+		Kind:             string(t.Kind),
+		DeviceId:         t.DeviceID,
+		Iccid:            deref(t.ICCID),
+		SimProvider:      deref(t.SIMProvider),
+		PhoneNo:          deref(t.PhoneNo),
+		ModelId:          deref(t.ModelID),
+		Owner:            string(t.Owner),
+		OwnerName:        deref(t.OwnerName),
+		Status:           t.Status,
+		CurrentVehicleId: deref(t.CurrentVehicleID),
+		Deleted:          t.Deleted,
+		CreatedAt:        timestamppb.New(t.CreatedAt),
+		UpdatedAt:        timestamppb.New(t.UpdatedAt),
+	}
+	if t.FittedAt != nil {
+		out.FittedAt = timestamppb.New(*t.FittedAt)
+	}
+	if len(t.Attributes) > 0 {
+		if attrs, err := structpb.NewStruct(t.Attributes); err == nil {
+			out.Attributes = attrs
+		}
+	}
+	return out
+}
+
 func (s *Server) GetDriver(ctx context.Context, req *masterdatav1.GetDriverRequest) (*masterdatav1.GetDriverResponse, error) {
 	// Service callers resolve by id alone: the business service holds the
 	// driver id from its own order and needs the person behind it, whichever
@@ -435,6 +485,9 @@ var (
 	truckFields = query.FieldSet{
 		"policeNumber": "licensePlate", "status": "status",
 		"isAvailable": "isAvailable", "createdAt": "createdAt",
+	}
+	trackerFields = query.FieldSet{
+		"deviceId": "deviceId", "kind": "kind", "owner": "owner", "status": "status", "createdAt": "createdAt",
 	}
 	warehouseFields = query.FieldSet{
 		"name": "name", "city": "city", "createdAt": "createdAt",

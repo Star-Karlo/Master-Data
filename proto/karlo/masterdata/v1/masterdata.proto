@@ -35,6 +35,11 @@ service MasterDataService {
   rpc GetTruck(GetTruckRequest) returns (GetTruckResponse);
   rpc ListTrucks(ListTrucksRequest) returns (ListTrucksResponse);
 
+  // ListTrackers pages a company's telematics devices (GPS and dashcams)
+  // with where each is fitted now. Master data owns the device register and
+  // the fit history; FMS projects this into its own tables.
+  rpc ListTrackers(ListTrackersRequest) returns (ListTrackersResponse);
+
   // ListDrivers pages a company's driver register, for a service that keeps
   // a projection of it — FMS's driversync. updated_since makes it
   // incremental; deleted rows are included so a projection can retire them.
@@ -245,6 +250,45 @@ message Driver {
 message ListTrucksRequest {
   string company_id = 1;
   karlo.common.v1.Query query = 2;
+}
+
+message ListTrackersRequest {
+  // Empty lists Karlo's own stock (devices with no company), which only a
+  // service caller sees.
+  string company_id = 1;
+  // "gps" or "dashcam"; empty for both.
+  string kind = 2;
+  karlo.common.v1.Query query = 3;
+}
+
+message ListTrackersResponse {
+  repeated Tracker trackers = 1;
+  karlo.common.v1.PageInfo page_info = 2;
+}
+
+// Tracker is one telematics device: a GPS unit (device_id is its IMEI) or a
+// dashcam (device_id is the VSS device id).
+message Tracker {
+  string id = 1;
+  string company_id = 2;
+  string kind = 3;
+  string device_id = 4;
+  string iccid = 5;
+  string sim_provider = 6;
+  // The SIM's MSISDN, the number the device is reached on.
+  string phone_no = 7;
+  string model_id = 8;
+  // karlo | customer | vendor, and the vendor's or customer's name.
+  string owner = 9;
+  string owner_name = 10;
+  string status = 11;
+  // The vehicle it is fitted to now, empty when in stock.
+  string current_vehicle_id = 12;
+  google.protobuf.Timestamp fitted_at = 13;
+  google.protobuf.Struct attributes = 14;
+  bool deleted = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
 }
 
 message ListTrucksResponse {
