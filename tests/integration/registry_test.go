@@ -60,7 +60,7 @@ func TestCatalogueScopingKeepsCompaniesApart(t *testing.T) {
 // vehicle's trackerId follows the GPS unit — and a dashcam never touches it.
 func TestFitUnfitKeepsThreeRecordsInStep(t *testing.T) {
 	db := testDB(t)
-	reg := services.NewRegistryService(db)
+	reg := services.NewRegistryService(db, nil)
 
 	v1, err := reg.CreateVehicle(ctx(), companyA, services.VehicleInput{LicensePlate: str("B 1 TST")})
 	if err != nil {

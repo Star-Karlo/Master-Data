@@ -53,6 +53,8 @@ func (m *memCache) Increment(context.Context, string, time.Duration) (int64, err
 func (m *memCache) SetIfAbsent(context.Context, string, []byte, time.Duration) (bool, error) {
 	return false, cache.ErrNoCache
 }
+func (m *memCache) Publish(context.Context, string, []byte) {}
+
 func (m *memCache) Ping(context.Context) error { return nil }
 func (m *memCache) Close() error               { return nil }
 

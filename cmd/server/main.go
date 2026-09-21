@@ -98,7 +98,7 @@ func run() error {
 
 	catalogService := services.NewCatalogService(db, cacheClient)
 	fleetService := services.NewFleetService(db)
-	registryService := services.NewRegistryService(db)
+	registryService := services.NewRegistryService(db, cacheClient)
 
 	grpcSrv := grpcutil.NewServer(grpcutil.ServerConfig{
 		Service:               "masterdata",

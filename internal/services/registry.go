@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/karlo/masterdata-service/internal/models"
+	"github.com/karlo/masterdata-service/internal/platform/cache"
 	"github.com/karlo/masterdata-service/internal/platform/normalise"
 	"github.com/karlo/masterdata-service/internal/platform/query"
 	"github.com/karlo/masterdata-service/internal/repository"
@@ -37,10 +39,25 @@ type RegistryService struct {
 	documents   *repository.Store[models.Document, *models.Document]
 	models      *mongo.Collection
 	db          *mongo.Database
+
+	// notices carries change notices to the other platform services; the
+	// no-op cache when there is no Redis.
+	notices cache.Cache
 }
 
-func NewRegistryService(db *mongo.Database) *RegistryService {
+// ChangeChannel is the Redis pub/sub channel every vehicle and driver write
+// is announced on. FMS subscribes to project the fleet into its own tables
+// the moment it changes, instead of on its next timer tick; anything else
+// that mirrors master data can do the same. The payload is a hint, not the
+// data: subscribers re-read what they need.
+const ChangeChannel = "karlo:masterdata"
+
+func NewRegistryService(db *mongo.Database, notices cache.Cache) *RegistryService {
+	if notices == nil {
+		notices = cache.NewNoop()
+	}
 	return &RegistryService{
+		notices:     notices,
 		drivers:     repository.NewStore[models.Driver](db),
 		vehicles:    repository.NewStore[models.Vehicle](db),
 		trackers:    repository.NewStore[models.Tracker](db),
@@ -233,6 +250,7 @@ func (s *RegistryService) CreateDriver(ctx context.Context, companyID string, in
 	if err := s.drivers.Create(ctx, d); err != nil {
 		return nil, dup(validation(err), "a driver with that phone, employee number, licence or login already exists")
 	}
+	s.announce(ctx, "driver", companyID, d.ID.Hex(), "create")
 	return d, nil
 }
 
@@ -247,6 +265,7 @@ func (s *RegistryService) UpdateDriver(ctx context.Context, companyID, id string
 	if err := s.drivers.Update(ctx, d.ID, d); err != nil {
 		return nil, dup(validation(err), "a driver with that phone, employee number, licence or login already exists")
 	}
+	s.announce(ctx, "driver", companyID, id, "update")
 	return d, nil
 }
 
@@ -263,7 +282,17 @@ func (s *RegistryService) DeleteDriver(ctx context.Context, companyID, id string
 	_, err = s.vehicles.Collection().UpdateMany(ctx,
 		bson.M{"companyId": companyID, "currentDriverId": id},
 		bson.M{"$set": bson.M{"currentDriverId": nil, "currentDriverUserId": nil, "updatedAt": time.Now().UTC()}})
+	s.announce(ctx, "driver", companyID, id, "delete")
 	return err
+}
+
+// announce publishes a change notice for one kind of record of one company.
+func (s *RegistryService) announce(ctx context.Context, kind, companyID, id, op string) {
+	payload, err := json.Marshal(map[string]string{"kind": kind, "company_id": companyID, "id": id, "op": op})
+	if err != nil {
+		return
+	}
+	s.notices.Publish(ctx, ChangeChannel, payload)
 }
 
 // validation maps the model's own errors onto ErrValidation so the handler
@@ -489,6 +518,7 @@ func (s *RegistryService) CreateVehicle(ctx context.Context, companyID string, i
 	if err := s.vehicles.Create(ctx, v); err != nil {
 		return nil, dup(validation(err), "a vehicle with that plate or chassis number already exists")
 	}
+	s.announce(ctx, "vehicle", companyID, v.ID.Hex(), "create")
 	return s.GetVehicle(ctx, companyID, v.ID.Hex())
 }
 
@@ -506,6 +536,7 @@ func (s *RegistryService) UpdateVehicle(ctx context.Context, companyID, id strin
 	if err := s.vehicles.Update(ctx, v.ID, v); err != nil {
 		return nil, dup(validation(err), "a vehicle with that plate or chassis number already exists")
 	}
+	s.announce(ctx, "vehicle", companyID, id, "update")
 	return s.GetVehicle(ctx, companyID, id)
 }
 
@@ -556,6 +587,7 @@ func (s *RegistryService) DeleteVehicle(ctx context.Context, companyID, id strin
 		return err
 	}
 	_, err = s.members.DeleteMany(ctx, bson.M{"companyId": companyID, "vehicleId": id})
+	s.announce(ctx, "vehicle", companyID, id, "delete")
 	return err
 }
 

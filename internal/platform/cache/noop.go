@@ -14,6 +14,8 @@ type Noop struct{}
 
 func NewNoop() *Noop { return &Noop{} }
 
+func (*Noop) Publish(context.Context, string, []byte) {}
+
 func (Noop) Get(context.Context, string) ([]byte, bool) { return nil, false }
 
 func (Noop) Set(context.Context, string, []byte, time.Duration) {}
