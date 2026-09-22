@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/karlo/masterdata-service/internal/config"
 	"github.com/karlo/masterdata-service/internal/models"
@@ -419,8 +420,41 @@ func (s *CatalogService) Delete(ctx context.Context, kind, id, companyID string,
 		return err
 	}
 	s.invalidate(ctx, kind, companyID, platformStaff)
+	s.ungroupVehicles(ctx, kind, id)
 	s.announceGroup(ctx, kind, id, "delete")
 	return nil
+}
+
+// ungroupVehicles clears truckGroupId on every vehicle of a retired group,
+// and announces each as a vehicle update, so Truck.truck_group_id and the
+// group's own delete notice never disagree about who is in a group that no
+// longer exists.
+func (s *CatalogService) ungroupVehicles(ctx context.Context, kind, groupID string) {
+	if kind != "vehicleGroup" {
+		return
+	}
+	vehicles := s.db.Collection(models.Vehicle{}.CollectionName())
+	cur, err := vehicles.Find(ctx, bson.M{"truckGroupId": groupID}, options.Find().SetProjection(bson.M{"_id": 1, "companyId": 1}))
+	if err != nil {
+		return
+	}
+	var rows []struct {
+		ID        primitive.ObjectID `bson:"_id"`
+		CompanyID string             `bson:"companyId"`
+	}
+	if err := cur.All(ctx, &rows); err != nil || len(rows) == 0 {
+		return
+	}
+	if _, err := vehicles.UpdateMany(ctx, bson.M{"truckGroupId": groupID},
+		bson.M{"$set": bson.M{"truckGroupId": nil, "updatedAt": time.Now()}}); err != nil {
+		return
+	}
+	for _, v := range rows {
+		payload, err := json.Marshal(map[string]string{"kind": "vehicle", "company_id": v.CompanyID, "id": v.ID.Hex(), "op": "update"})
+		if err == nil {
+			s.cache.Publish(ctx, ChangeChannel, payload)
+		}
+	}
 }
 
 // ListTruckGroups returns a company's vehicle groups, retired ones included,
