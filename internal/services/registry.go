@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/karlo/masterdata-service/internal/models"
 	"github.com/karlo/masterdata-service/internal/platform/cache"
@@ -567,9 +568,48 @@ func (s *RegistryService) setDriver(ctx context.Context, companyID string, v *mo
 		return fmt.Errorf("%w: that driver is inactive", ErrValidation)
 	}
 	hex := d.ID.Hex()
+	if v.CurrentDriverID != nil && *v.CurrentDriverID == hex {
+		return nil
+	}
+	// One truck per driver. Pairing them here unpairs them anywhere else in
+	// the company, and that other truck is announced so FMS follows; two
+	// trucks both claiming the same driver is exactly the inconsistency the
+	// register exists to prevent.
+	others, err := s.unpairDriverElsewhere(ctx, companyID, hex, v.ID)
+	if err != nil {
+		return err
+	}
+	for _, id := range others {
+		s.announce(ctx, "vehicle", companyID, id, "update")
+	}
 	v.CurrentDriverID = &hex
 	v.CurrentDriverUserID = d.UserID
 	return nil
+}
+
+// unpairDriverElsewhere clears a driver from every vehicle of the company
+// except the one being paired, returning the ids it changed.
+func (s *RegistryService) unpairDriverElsewhere(ctx context.Context, companyID, driverID string, except primitive.ObjectID) ([]string, error) {
+	filter := bson.M{"companyId": companyID, "currentDriverId": driverID, "_id": bson.M{"$ne": except}}
+	cur, err := s.vehicles.Collection().Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 1}))
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+	if err := cur.All(ctx, &rows); err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	if _, err := s.vehicles.Collection().UpdateMany(ctx, filter,
+		bson.M{"$set": bson.M{"currentDriverId": nil, "currentDriverUserId": nil, "updatedAt": time.Now()}}); err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.ID.Hex())
+	}
+	return out, nil
 }
 
 // DeleteVehicle retires a vehicle. Refused while a device is fitted: the
