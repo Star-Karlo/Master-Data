@@ -49,6 +49,7 @@ type Truck struct {
 	TruckHeadID   string   `json:"truckHeadId,omitempty"`
 	TruckBodyID   string   `json:"truckBodyId,omitempty"`
 	BrandID       string   `json:"brandId,omitempty"`
+	TruckGroupID  string   `json:"truckGroupId,omitempty"`
 	Year          int      `json:"year,omitempty"`
 	ChassisNumber string   `json:"chassisNumber,omitempty"`
 	EngineNumber  string   `json:"engineNumber,omitempty"`
@@ -210,6 +211,7 @@ func (s *FleetService) withDevices(ctx context.Context, companyID string, vehicl
 			BrandID:       deref(v.BrandID),
 			TruckHeadID:   deref(v.TruckHeadID),
 			TruckBodyID:   deref(v.TruckBodyID),
+			TruckGroupID:  deref(v.TruckGroupID),
 			ChassisNumber: deref(v.ChassisNumber),
 			EngineNumber:  deref(v.EngineNumber),
 			Status:        v.Status,

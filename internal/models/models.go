@@ -425,6 +425,11 @@ type Vehicle struct {
 
 	BrandID *string `bson:"brandId" json:"brandId,omitempty"`
 
+	// TruckGroupID is the vehicle group (vehicle_groups) this unit belongs
+	// to — one, since FMS's fleet group is single-valued and the two products
+	// share the field (Truck.truck_group_id on the wire).
+	TruckGroupID *string `bson:"truckGroupId" json:"truckGroupId,omitempty"`
+
 	UnitYear *int    `bson:"unitYear" json:"unitYear,omitempty"`
 	Color    *string `bson:"color" json:"color,omitempty"`
 
@@ -624,13 +629,10 @@ func (c *Customer) BeforeWrite() {
 
 // VehicleGroupMember puts a vehicle in a group.
 //
-// A membership document rather than a groupId on the vehicle, because a vehicle
-// belongs to SEVERAL groups at once — "Jakarta fleet" and "reefers" and "leased
-// units" are all true of one truck — and a single field would force a choice
-// between them.
-//
-// It also lets a group be attached to a notification rule or a person without
-// touching the vehicles themselves.
+// Superseded by Vehicle.TruckGroupID: membership is single-valued so that TMS
+// and FMS (whose fleet group is one per vehicle) agree on it. The collection is
+// kept for the notification-rule and PIC use it was designed for; the API no
+// longer reads it for fleet membership.
 type VehicleGroupMember struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	CompanyID string             `bson:"companyId" json:"companyId"`

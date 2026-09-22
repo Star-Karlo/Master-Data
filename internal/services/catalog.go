@@ -15,6 +15,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/karlo/masterdata-service/internal/config"
+	"github.com/karlo/masterdata-service/internal/models"
 	"github.com/karlo/masterdata-service/internal/platform/cache"
 	"github.com/karlo/masterdata-service/internal/platform/query"
 )
@@ -359,8 +361,36 @@ func (s *CatalogService) Create(ctx context.Context, kind, companyID string, pla
 	id, err := w.Create(ctx, owner, true, payload)
 	if err == nil {
 		s.invalidate(ctx, kind, companyID, platformStaff)
+		s.announceGroup(ctx, kind, id, "create")
 	}
 	return id, err
+}
+
+// announceGroup publishes a truckGroup notice on the registry's change
+// channel when a vehicle group is written. Groups are catalogue entries here
+// but fleet data to FMS, which projects them the way it does vehicles and
+// drivers, so they announce the same way. The owner is read back from the
+// document rather than taken from the caller: Karlo staff write for a
+// company, and the notice must name that company.
+func (s *CatalogService) announceGroup(ctx context.Context, kind, id, op string) {
+	if kind != "vehicleGroup" {
+		return
+	}
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return
+	}
+	var doc struct {
+		CompanyID string `bson:"companyId"`
+	}
+	if err := s.db.Collection(models.VehicleGroup{}.CollectionName()).FindOne(ctx, bson.M{"_id": oid}).Decode(&doc); err != nil {
+		return
+	}
+	payload, err := json.Marshal(map[string]string{"kind": "truckGroup", "company_id": doc.CompanyID, "id": id, "op": op})
+	if err != nil {
+		return
+	}
+	s.cache.Publish(ctx, ChangeChannel, payload)
 }
 
 // Update changes an entry the caller owns.
@@ -375,6 +405,7 @@ func (s *CatalogService) Update(ctx context.Context, kind, id, companyID string,
 		return err
 	}
 	s.invalidate(ctx, kind, companyID, platformStaff)
+	s.announceGroup(ctx, kind, id, "update")
 	return nil
 }
 
@@ -388,7 +419,22 @@ func (s *CatalogService) Delete(ctx context.Context, kind, id, companyID string,
 		return err
 	}
 	s.invalidate(ctx, kind, companyID, platformStaff)
+	s.announceGroup(ctx, kind, id, "delete")
 	return nil
+}
+
+// ListTruckGroups returns a company's vehicle groups, retired ones included,
+// for the gRPC projection.
+func (s *CatalogService) ListTruckGroups(ctx context.Context, companyID string) ([]models.VehicleGroup, error) {
+	cur, err := s.db.Collection(models.VehicleGroup{}.CollectionName()).Find(ctx, bson.M{"companyId": companyID})
+	if err != nil {
+		return nil, err
+	}
+	var out []models.VehicleGroup
+	if err := cur.All(ctx, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // visibility is the scoping rule every reference list shares: a company sees

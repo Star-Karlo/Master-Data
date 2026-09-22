@@ -481,39 +481,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/documents/{id}/verify": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "documents"
-                ],
-                "summary": "Mark a document verified",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Document id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_models.Document"
-                        }
-                    }
-                }
-            }
-        },
         "/drivers": {
             "get": {
                 "security": [
@@ -1153,307 +1120,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/vehicle-groups": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "List vehicle groups",
-                "responses": {
-                    "200": {
-                        "description": "success, data []services.GroupView, meta",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Create a vehicle group",
-                "parameters": [
-                    {
-                        "description": "Group",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView"
-                        }
-                    }
-                }
-            }
-        },
-        "/vehicle-groups/{id}": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Edit a vehicle group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Changed fields",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Delete a vehicle group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/vehicle-groups/{id}/members": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Vehicles in a group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "success, data []services.VehicleView, meta",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Replace a group's members",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "The complete membership",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.membersRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Add a vehicle to a group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Vehicle",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handlers.memberRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/vehicle-groups/{id}/members/{vehicleId}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "vehicle-groups"
-                ],
-                "summary": "Remove a vehicle from a group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Group id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Vehicle id",
-                        "name": "vehicleId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/vehicles": {
             "get": {
                 "security": [
@@ -2030,6 +1696,10 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
+                "customerCompanyId": {
+                    "description": "CustomerCompanyID says whose site this is when a transporter keeps\nits customers' warehouses in its own register (MyWarehouse groups\nthem per customer). Empty for the company's own sites.",
+                    "type": "string"
+                },
                 "district": {
                     "type": "string"
                 },
@@ -2265,6 +1935,10 @@ const docTemplate = `{
                 "truckBodyId": {
                     "type": "string"
                 },
+                "truckGroupId": {
+                    "description": "TruckGroupID is the vehicle group (vehicle_groups) this unit belongs\nto — one, since FMS's fleet group is single-valued and the two products\nshare the field (Truck.truck_group_id on the wire).",
+                    "type": "string"
+                },
                 "truckHeadId": {
                     "description": "A head names a head type; a body or a rigid names a body type. Both\nfields rather than one, because a rigid truck has a body and no separate\nhead — forcing them through one field would mean guessing which list an\nid belongs to.",
                     "type": "string"
@@ -2382,62 +2056,16 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_karlo_masterdata-service_internal_services.GroupInput": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "picUserIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "github_com_karlo_masterdata-service_internal_services.GroupView": {
-            "type": "object",
-            "properties": {
-                "companyId": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "memberCount": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "picUserIds": {
-                    "description": "Who to tell about this group. The point of a group is usually that\nsomebody is responsible for it.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_karlo_masterdata-service_internal_services.TrackerInput": {
             "type": "object",
             "properties": {
                 "attributes": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "companyId": {
+                    "description": "CompanyID moves a device between Karlo's stock and a company (or\nbetween companies). Platform staff only; ignored for everyone else.\nThis is how the backfilled stock is handed to the companies that\nactually run the devices.",
+                    "type": "string"
                 },
                 "deviceId": {
                     "type": "string"
@@ -2459,6 +2087,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ownerName": {
+                    "type": "string"
+                },
+                "phoneNo": {
                     "type": "string"
                 },
                 "simProvider": {
@@ -2541,6 +2172,10 @@ const docTemplate = `{
                 "ownerName": {
                     "type": "string"
                 },
+                "phoneNo": {
+                    "description": "PhoneNo is the SIM's MSISDN — how the device is reached for SMS\ncommands. FMS keeps it per device; kept here so the two agree.",
+                    "type": "string"
+                },
                 "simProvider": {
                     "type": "string"
                 },
@@ -2607,6 +2242,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "truckBodyId": {
+                    "type": "string"
+                },
+                "truckGroupId": {
                     "type": "string"
                 },
                 "truckHeadId": {
@@ -2695,6 +2333,10 @@ const docTemplate = `{
                 "truckBodyId": {
                     "type": "string"
                 },
+                "truckGroupId": {
+                    "description": "TruckGroupID is the vehicle group (vehicle_groups) this unit belongs\nto — one, since FMS's fleet group is single-valued and the two products\nshare the field (Truck.truck_group_id on the wire).",
+                    "type": "string"
+                },
                 "truckHeadId": {
                     "description": "A head names a head type; a body or a rigid names a body type. Both\nfields rather than one, because a rigid truck has a body and no separate\nhead — forcing them through one field would mean guessing which list an\nid belongs to.",
                     "type": "string"
@@ -2739,28 +2381,6 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handlers.memberRequest": {
-            "type": "object",
-            "required": [
-                "vehicleId"
-            ],
-            "properties": {
-                "vehicleId": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handlers.membersRequest": {
-            "type": "object",
-            "properties": {
-                "vehicleIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "internal_handlers.warehouseRequest": {
             "type": "object",
             "required": [
@@ -2771,6 +2391,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "city": {
+                    "type": "string"
+                },
+                "customerCompanyId": {
+                    "description": "The customer this site belongs to (MyWarehouse groups per customer).",
                     "type": "string"
                 },
                 "district": {

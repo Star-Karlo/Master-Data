@@ -110,6 +110,12 @@ definitions:
         type: string
       createdAt:
         type: string
+      customerCompanyId:
+        description: |-
+          CustomerCompanyID says whose site this is when a transporter keeps
+          its customers' warehouses in its own register (MyWarehouse groups
+          them per customer). Empty for the company's own sites.
+        type: string
       district:
         type: string
       geofenceRadiusM:
@@ -309,6 +315,12 @@ definitions:
         type: string
       truckBodyId:
         type: string
+      truckGroupId:
+        description: |-
+          TruckGroupID is the vehicle group (vehicle_groups) this unit belongs
+          to — one, since FMS's fleet group is single-valued and the two products
+          share the field (Truck.truck_group_id on the wire).
+        type: string
       truckHeadId:
         description: |-
           A head names a head type; a body or a rigid names a body type. Both
@@ -391,46 +403,18 @@ definitions:
       vehicleId:
         type: string
     type: object
-  github_com_karlo_masterdata-service_internal_services.GroupInput:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      picUserIds:
-        items:
-          type: string
-        type: array
-    type: object
-  github_com_karlo_masterdata-service_internal_services.GroupView:
-    properties:
-      companyId:
-        type: string
-      createdAt:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      memberCount:
-        type: integer
-      name:
-        type: string
-      picUserIds:
-        description: |-
-          Who to tell about this group. The point of a group is usually that
-          somebody is responsible for it.
-        items:
-          type: string
-        type: array
-      updatedAt:
-        type: string
-    type: object
   github_com_karlo_masterdata-service_internal_services.TrackerInput:
     properties:
       attributes:
         additionalProperties: true
         type: object
+      companyId:
+        description: |-
+          CompanyID moves a device between Karlo's stock and a company (or
+          between companies). Platform staff only; ignored for everyone else.
+          This is how the backfilled stock is handed to the companies that
+          actually run the devices.
+        type: string
       deviceId:
         type: string
       iccid:
@@ -445,6 +429,8 @@ definitions:
       owner:
         type: string
       ownerName:
+        type: string
+      phoneNo:
         type: string
       simProvider:
         type: string
@@ -519,6 +505,11 @@ definitions:
           are out with customers" or "who do we chase when this one fails".
       ownerName:
         type: string
+      phoneNo:
+        description: |-
+          PhoneNo is the SIM's MSISDN — how the device is reached for SMS
+          commands. FMS keeps it per device; kept here so the two agree.
+        type: string
       simProvider:
         type: string
       status:
@@ -563,6 +554,8 @@ definitions:
       status:
         type: string
       truckBodyId:
+        type: string
+      truckGroupId:
         type: string
       truckHeadId:
         type: string
@@ -640,6 +633,12 @@ definitions:
         type: string
       truckBodyId:
         type: string
+      truckGroupId:
+        description: |-
+          TruckGroupID is the vehicle group (vehicle_groups) this unit belongs
+          to — one, since FMS's fleet group is single-valued and the two products
+          share the field (Truck.truck_group_id on the wire).
+        type: string
       truckHeadId:
         description: |-
           A head names a head type; a body or a rigid names a body type. Both
@@ -679,25 +678,14 @@ definitions:
           so the UI can omit the add button rather than offering one that fails.
         type: boolean
     type: object
-  internal_handlers.memberRequest:
-    properties:
-      vehicleId:
-        type: string
-    required:
-    - vehicleId
-    type: object
-  internal_handlers.membersRequest:
-    properties:
-      vehicleIds:
-        items:
-          type: string
-        type: array
-    type: object
   internal_handlers.warehouseRequest:
     properties:
       address:
         type: string
       city:
+        type: string
+      customerCompanyId:
+        description: The customer this site belongs to (MyWarehouse groups per customer).
         type: string
       district:
         type: string
@@ -1040,26 +1028,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Edit a document
-      tags:
-      - documents
-  /documents/{id}/verify:
-    post:
-      parameters:
-      - description: Document id
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_models.Document'
-      security:
-      - BearerAuth: []
-      summary: Mark a document verified
       tags:
       - documents
   /drivers:
@@ -1463,194 +1431,6 @@ paths:
       summary: Get a truck
       tags:
       - fleet
-  /vehicle-groups:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: success, data []services.GroupView, meta
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List vehicle groups
-      tags:
-      - vehicle-groups
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Group
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView'
-      security:
-      - BearerAuth: []
-      summary: Create a vehicle group
-      tags:
-      - vehicle-groups
-  /vehicle-groups/{id}:
-    delete:
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete a vehicle group
-      tags:
-      - vehicle-groups
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Changed fields
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_karlo_masterdata-service_internal_services.GroupView'
-      security:
-      - BearerAuth: []
-      summary: Edit a vehicle group
-      tags:
-      - vehicle-groups
-  /vehicle-groups/{id}/members:
-    get:
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: success, data []services.VehicleView, meta
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Vehicles in a group
-      tags:
-      - vehicle-groups
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Vehicle
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handlers.memberRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Add a vehicle to a group
-      tags:
-      - vehicle-groups
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: The complete membership
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handlers.membersRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Replace a group's members
-      tags:
-      - vehicle-groups
-  /vehicle-groups/{id}/members/{vehicleId}:
-    delete:
-      parameters:
-      - description: Group id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Vehicle id
-        in: path
-        name: vehicleId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Remove a vehicle from a group
-      tags:
-      - vehicle-groups
   /vehicles:
     get:
       parameters:

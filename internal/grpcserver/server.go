@@ -306,6 +306,28 @@ func (s *Server) ListTrackers(ctx context.Context, req *masterdatav1.ListTracker
 	return &masterdatav1.ListTrackersResponse{Trackers: out, PageInfo: pageInfo(p, total)}, nil
 }
 
+func (s *Server) ListTruckGroups(ctx context.Context, req *masterdatav1.ListTruckGroupsRequest) (*masterdatav1.ListTruckGroupsResponse, error) {
+	if req.GetCompanyId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	}
+	groups, err := s.catalog.ListTruckGroups(ctx, req.GetCompanyId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := make([]*masterdatav1.TruckGroup, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, &masterdatav1.TruckGroup{
+			Id:          g.ID.Hex(),
+			CompanyId:   g.CompanyID,
+			Name:        g.Name,
+			Description: deref(g.Description),
+			Deleted:     g.Deleted,
+			UpdatedAt:   timestamppb.New(g.UpdatedAt),
+		})
+	}
+	return &masterdatav1.ListTruckGroupsResponse{Groups: out}, nil
+}
+
 func toProtoTracker(t services.TrackerView) *masterdatav1.Tracker {
 	out := &masterdatav1.Tracker{
 		Id:               t.ID.Hex(),
@@ -417,6 +439,7 @@ func toProtoTruck(t services.Truck) *masterdatav1.Truck {
 		TruckHeadId:   t.TruckHeadID,
 		TruckBodyId:   t.TruckBodyID,
 		BrandId:       t.BrandID,
+		TruckGroupId:  t.TruckGroupID,
 		Year:          int32(t.Year), //nolint:gosec // a model year cannot overflow
 		ChassisNumber: t.ChassisNumber,
 		EngineNumber:  t.EngineNumber,

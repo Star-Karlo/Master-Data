@@ -26,6 +26,7 @@ const (
 	MasterDataService_GetTruck_FullMethodName            = "/karlo.masterdata.v1.MasterDataService/GetTruck"
 	MasterDataService_ListTrucks_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/ListTrucks"
 	MasterDataService_ListTrackers_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/ListTrackers"
+	MasterDataService_ListTruckGroups_FullMethodName     = "/karlo.masterdata.v1.MasterDataService/ListTruckGroups"
 	MasterDataService_ListDrivers_FullMethodName         = "/karlo.masterdata.v1.MasterDataService/ListDrivers"
 	MasterDataService_GetDriver_FullMethodName           = "/karlo.masterdata.v1.MasterDataService/GetDriver"
 	MasterDataService_GetTrucksByDriver_FullMethodName   = "/karlo.masterdata.v1.MasterDataService/GetTrucksByDriver"
@@ -65,6 +66,11 @@ type MasterDataServiceClient interface {
 	// with where each is fitted now. Master data owns the device register and
 	// the fit history; FMS projects this into its own tables.
 	ListTrackers(ctx context.Context, in *ListTrackersRequest, opts ...grpc.CallOption) (*ListTrackersResponse, error)
+	// ListTruckGroups returns every vehicle group of a company, retired ones
+	// included (deleted = true) so a consumer can retire its copy. Master data
+	// owns groups; FMS's fleet groups are a projection of them. Membership is
+	// Truck.truck_group_id.
+	ListTruckGroups(ctx context.Context, in *ListTruckGroupsRequest, opts ...grpc.CallOption) (*ListTruckGroupsResponse, error)
 	// ListDrivers pages a company's driver register, for a service that keeps
 	// a projection of it — FMS's driversync. updated_since makes it
 	// incremental; deleted rows are included so a projection can retire them.
@@ -157,6 +163,16 @@ func (c *masterDataServiceClient) ListTrackers(ctx context.Context, in *ListTrac
 	return out, nil
 }
 
+func (c *masterDataServiceClient) ListTruckGroups(ctx context.Context, in *ListTruckGroupsRequest, opts ...grpc.CallOption) (*ListTruckGroupsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTruckGroupsResponse)
+	err := c.cc.Invoke(ctx, MasterDataService_ListTruckGroups_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *masterDataServiceClient) ListDrivers(ctx context.Context, in *ListDriversRequest, opts ...grpc.CallOption) (*ListDriversResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListDriversResponse)
@@ -239,6 +255,11 @@ type MasterDataServiceServer interface {
 	// with where each is fitted now. Master data owns the device register and
 	// the fit history; FMS projects this into its own tables.
 	ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error)
+	// ListTruckGroups returns every vehicle group of a company, retired ones
+	// included (deleted = true) so a consumer can retire its copy. Master data
+	// owns groups; FMS's fleet groups are a projection of them. Membership is
+	// Truck.truck_group_id.
+	ListTruckGroups(context.Context, *ListTruckGroupsRequest) (*ListTruckGroupsResponse, error)
 	// ListDrivers pages a company's driver register, for a service that keeps
 	// a projection of it — FMS's driversync. updated_since makes it
 	// incremental; deleted rows are included so a projection can retire them.
@@ -281,6 +302,9 @@ func (UnimplementedMasterDataServiceServer) ListTrucks(context.Context, *ListTru
 }
 func (UnimplementedMasterDataServiceServer) ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTrackers not implemented")
+}
+func (UnimplementedMasterDataServiceServer) ListTruckGroups(context.Context, *ListTruckGroupsRequest) (*ListTruckGroupsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTruckGroups not implemented")
 }
 func (UnimplementedMasterDataServiceServer) ListDrivers(context.Context, *ListDriversRequest) (*ListDriversResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDrivers not implemented")
@@ -444,6 +468,24 @@ func _MasterDataService_ListTrackers_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MasterDataService_ListTruckGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTruckGroupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterDataServiceServer).ListTruckGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MasterDataService_ListTruckGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterDataServiceServer).ListTruckGroups(ctx, req.(*ListTruckGroupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MasterDataService_ListDrivers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListDriversRequest)
 	if err := dec(in); err != nil {
@@ -568,6 +610,10 @@ var MasterDataService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTrackers",
 			Handler:    _MasterDataService_ListTrackers_Handler,
+		},
+		{
+			MethodName: "ListTruckGroups",
+			Handler:    _MasterDataService_ListTruckGroups_Handler,
 		},
 		{
 			MethodName: "ListDrivers",

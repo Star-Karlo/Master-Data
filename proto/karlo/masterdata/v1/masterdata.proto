@@ -40,6 +40,12 @@ service MasterDataService {
   // the fit history; FMS projects this into its own tables.
   rpc ListTrackers(ListTrackersRequest) returns (ListTrackersResponse);
 
+  // ListTruckGroups returns every vehicle group of a company, retired ones
+  // included (deleted = true) so a consumer can retire its copy. Master data
+  // owns groups; FMS's fleet groups are a projection of them. Membership is
+  // Truck.truck_group_id.
+  rpc ListTruckGroups(ListTruckGroupsRequest) returns (ListTruckGroupsResponse);
+
   // ListDrivers pages a company's driver register, for a service that keeps
   // a projection of it — FMS's driversync. updated_since makes it
   // incremental; deleted rows are included so a projection can retire them.
@@ -264,6 +270,25 @@ message ListTrackersRequest {
 message ListTrackersResponse {
   repeated Tracker trackers = 1;
   karlo.common.v1.PageInfo page_info = 2;
+}
+
+message ListTruckGroupsRequest {
+  string company_id = 1;
+}
+
+message ListTruckGroupsResponse {
+  repeated TruckGroup groups = 1;
+}
+
+// TruckGroup is how one company organises its fleet — a depot, a contract, a
+// division. Company-owned by nature.
+message TruckGroup {
+  string id = 1;
+  string company_id = 2;
+  string name = 3;
+  string description = 4;
+  bool deleted = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 // Tracker is one telematics device: a GPS unit (device_id is its IMEI) or a

@@ -319,6 +319,7 @@ type VehicleInput struct {
 	TruckHeadID     *string                `json:"truckHeadId"`
 	TruckBodyID     *string                `json:"truckBodyId"`
 	BrandID         *string                `json:"brandId"`
+	TruckGroupID    *string                `json:"truckGroupId"`
 	UnitYear        *int                   `json:"unitYear"`
 	Color           *string                `json:"color"`
 	Status          *string                `json:"status"`
@@ -341,6 +342,7 @@ func (in VehicleInput) apply(v *models.Vehicle) error {
 	str(&v.TruckHeadID, in.TruckHeadID)
 	str(&v.TruckBodyID, in.TruckBodyID)
 	str(&v.BrandID, in.BrandID)
+	str(&v.TruckGroupID, in.TruckGroupID)
 	str(&v.Color, in.Color)
 	str(&v.Notes, in.Notes)
 	if in.UnitType != nil {
@@ -415,11 +417,7 @@ func (s *RegistryService) ListVehicles(ctx context.Context, companyID string, p 
 		filter["isAvailable"] = *available
 	}
 	if groupID != "" {
-		ids, err := s.memberVehicleIDs(ctx, companyID, groupID)
-		if err != nil {
-			return nil, 0, err
-		}
-		filter["_id"] = bson.M{"$in": ids}
+		filter["truckGroupId"] = groupID
 	}
 	if p.Search != "" {
 		filter["$or"] = []bson.M{
@@ -511,6 +509,9 @@ func (s *RegistryService) CreateVehicle(ctx context.Context, companyID string, i
 	if err := in.apply(v); err != nil {
 		return nil, err
 	}
+	if err := s.checkGroup(ctx, companyID, v.TruckGroupID); err != nil {
+		return nil, err
+	}
 	if err := s.setDriver(ctx, companyID, v, in.CurrentDriverID); err != nil {
 		return nil, err
 	}
@@ -528,6 +529,9 @@ func (s *RegistryService) UpdateVehicle(ctx context.Context, companyID, id strin
 		return nil, err
 	}
 	if err := in.apply(v); err != nil {
+		return nil, err
+	}
+	if err := s.checkGroup(ctx, companyID, v.TruckGroupID); err != nil {
 		return nil, err
 	}
 	if err := s.setDriver(ctx, companyID, v, in.CurrentDriverID); err != nil {
@@ -1093,20 +1097,25 @@ func isNoTransactions(err error) bool {
 // Vehicle groups
 // ---------------------------------------------------------------------------
 
-func (s *RegistryService) memberVehicleIDs(ctx context.Context, companyID, groupID string) ([]primitive.ObjectID, error) {
-	ids, err := s.members.Distinct(ctx, "vehicleId", bson.M{"companyId": companyID, "groupId": groupID})
+// checkGroup refuses a truckGroupId that is not one of the company's own
+// vehicle groups, so a vehicle can never point at a group that is not there.
+func (s *RegistryService) checkGroup(ctx context.Context, companyID string, groupID *string) error {
+	if groupID == nil || *groupID == "" {
+		return nil
+	}
+	oid, err := primitive.ObjectIDFromHex(*groupID)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("%w: truckGroupId is not a valid id", ErrValidation)
 	}
-	out := make([]primitive.ObjectID, 0, len(ids))
-	for _, id := range ids {
-		if h, ok := id.(string); ok {
-			if o, err := primitive.ObjectIDFromHex(h); err == nil {
-				out = append(out, o)
-			}
-		}
+	n, err := s.db.Collection(models.VehicleGroup{}.CollectionName()).CountDocuments(ctx,
+		bson.M{"_id": oid, "companyId": companyID, "deleted": bson.M{"$ne": true}})
+	if err != nil {
+		return err
 	}
-	return out, nil
+	if n == 0 {
+		return fmt.Errorf("%w: no such vehicle group", ErrValidation)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
