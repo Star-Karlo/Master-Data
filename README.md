@@ -26,6 +26,17 @@ per-company write path has no caller yet.
 routes, trackers — belongs to one company outright, scoped by the company id on
 the token and never by a request parameter.
 
+Vehicle groups are the one catalogue kind (`vehicleGroup`) that FMS mirrors:
+master data owns them, a vehicle names its single group in `truckGroupId`
+(validated against the company's own live groups; `""` clears it;
+`GET /vehicles?groupId=` filters on it), and FMS projects them through gRPC
+`ListTruckGroups` and `Truck.truck_group_id`. Every vehicle, driver and tracker
+write, and every `vehicleGroup` catalogue write, publishes
+`{"kind", "company_id", "id", "op"}` on the Redis channel `karlo:masterdata`
+(`services.ChangeChannel`) so a subscriber can re-read straight away rather
+than on its next tick; the notice is a hint, not the data, and without Redis
+it is a no-op. The full contract is in `../docs/shared/TECHNICAL.md` §12.
+
 ## Getting started
 
 ```bash

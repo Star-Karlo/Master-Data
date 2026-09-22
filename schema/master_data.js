@@ -288,6 +288,10 @@ ensure("vehicles", {
 
       brandId: { bsonType: ["string", "null"] },
 
+      // One vehicle group per unit (vehicle_groups._id as hex). Single-valued
+      // so that TMS and FMS, whose fleet group is one per vehicle, agree.
+      truckGroupId: { bsonType: ["string", "null"] },
+
       unitYear: { bsonType: ["int", "null"] },
       color: { bsonType: ["string", "null"] },
 
@@ -342,6 +346,7 @@ ensure("vehicles", {
   { keys: { trackerId: 1 }, opts: { name: "ix_vehicles_tracker" } },
   { keys: { truckHeadId: 1 }, opts: { name: "ix_vehicles_head" } },
   { keys: { truckBodyId: 1 }, opts: { name: "ix_vehicles_body" } },
+  { keys: { companyId: 1, truckGroupId: 1 }, opts: { name: "ix_vehicles_group" } },
   { keys: { currentDriverUserId: 1 }, opts: { name: "ix_vehicles_driver" } },
   // GetTrucksByDriver filters on the driver id; the pairing check on every
   // assignment goes through it.
