@@ -89,7 +89,10 @@ type Warehouse struct {
 	Longitude            float64 `json:"longitude"`
 	GeofenceRadiusMeters int     `json:"geofenceRadiusMeters"`
 
-	PICPhone string `json:"picPhone,omitempty"`
+	// PICName / PICPhone are the default contact; PICs the whole list.
+	PICName  string           `json:"picName,omitempty"`
+	PICPhone string           `json:"picPhone,omitempty"`
+	PICs     []models.SitePIC `json:"pics"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -353,7 +356,9 @@ func toWarehouse(site models.Site) Warehouse {
 		City:              deref(site.City),
 		District:          deref(site.District),
 		Province:          deref(site.Province),
+		PICName:           deref(site.SitePICName),
 		PICPhone:          deref(site.SitePICPhone),
+		PICs:              site.PICs,
 		CustomerCompanyID: deref(site.CustomerCompanyID),
 		CreatedAt:         site.CreatedAt,
 		UpdatedAt:         site.UpdatedAt,
@@ -368,6 +373,9 @@ func toWarehouse(site models.Site) Warehouse {
 	}
 	if site.GeofenceRadiusM != nil {
 		w.GeofenceRadiusMeters = *site.GeofenceRadiusM
+	}
+	if w.PICs == nil {
+		w.PICs = []models.SitePIC{}
 	}
 
 	return w

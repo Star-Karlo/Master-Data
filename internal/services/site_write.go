@@ -43,12 +43,95 @@ type SiteInput struct {
 	// roadside drop needs a wider radius than a fenced yard.
 	GeofenceRadiusM *int
 
+	// PICName / PICPhone are the legacy single contact: when given without
+	// PICs they become (or update) the default entry of the list.
 	PICPhone string
 	PICName  string
-	Notes    string
+	// PICs, when non-nil, replaces the site's contact list. Exactly one is
+	// default: the one flagged, else the first.
+	PICs  *[]SitePICInput
+	Notes string
 	// CustomerCompanyID is the customer this site belongs to, or "" for
 	// the company's own. Sent as "" on update to clear.
 	CustomerCompanyID *string
+}
+
+// SitePICInput is one contact as the console sends it. An empty ID means
+// a new entry.
+type SitePICInput struct {
+	ID        string
+	Name      string
+	Phone     string
+	IsDefault bool
+}
+
+// ApplyPICs writes the contact list and keeps the legacy single fields
+// mirroring the default, so nothing that reads sitePicName/Phone changes.
+func ApplyPICs(site *models.Site, in SiteInput) error {
+	if in.PICs != nil {
+		list := make([]models.SitePIC, 0, len(*in.PICs))
+		defaultSeen := false
+		for _, p := range *in.PICs {
+			name, phone := strings.TrimSpace(p.Name), strings.TrimSpace(p.Phone)
+			if name == "" && phone == "" {
+				continue
+			}
+			if name == "" {
+				return fmt.Errorf("%w: a PIC needs a name", ErrValidation)
+			}
+			id := strings.TrimSpace(p.ID)
+			if id == "" {
+				id = primitive.NewObjectID().Hex()
+			}
+			isDefault := p.IsDefault && !defaultSeen
+			if isDefault {
+				defaultSeen = true
+			}
+			list = append(list, models.SitePIC{ID: id, Name: name, Phone: phone, IsDefault: isDefault})
+		}
+		if len(list) > 0 && !defaultSeen {
+			list[0].IsDefault = true
+		}
+		site.PICs = list
+	} else if strings.TrimSpace(in.PICName) != "" || strings.TrimSpace(in.PICPhone) != "" {
+		// The old single-contact form: it edits the default entry.
+		name, phone := strings.TrimSpace(in.PICName), strings.TrimSpace(in.PICPhone)
+		idx := -1
+		for i, p := range site.PICs {
+			if p.IsDefault {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			if name == "" {
+				name = "PIC"
+			}
+			site.PICs = append(site.PICs, models.SitePIC{ID: primitive.NewObjectID().Hex(), Name: name, Phone: phone, IsDefault: len(site.PICs) == 0})
+			if len(site.PICs) > 1 {
+				site.PICs[len(site.PICs)-1].IsDefault = true
+				for i := range site.PICs[:len(site.PICs)-1] {
+					site.PICs[i].IsDefault = false
+				}
+			}
+		} else {
+			if name != "" {
+				site.PICs[idx].Name = name
+			}
+			if phone != "" {
+				site.PICs[idx].Phone = phone
+			}
+		}
+	}
+	site.SitePICName, site.SitePICPhone = nil, nil
+	for _, p := range site.PICs {
+		if p.IsDefault {
+			site.SitePICName = nilIfBlank(p.Name)
+			site.SitePICPhone = nilIfBlank(p.Phone)
+			break
+		}
+	}
+	return nil
 }
 
 // DefaultGeofenceRadiusM is used when a site does not set its own.
@@ -79,7 +162,9 @@ func (s *FleetService) CreateSite(ctx context.Context, companyID string, in Site
 	setOptional(&site.City, in.City)
 	setOptional(&site.Province, in.Province)
 	setOptional(&site.Postcode, in.Postcode)
-	setOptional(&site.SitePICPhone, in.PICPhone)
+	if err := ApplyPICs(site, in); err != nil {
+		return nil, err
+	}
 	setOptional(&site.Notes, in.Notes)
 	if in.CustomerCompanyID != nil {
 		site.CustomerCompanyID = nilIfBlank(*in.CustomerCompanyID)
@@ -147,7 +232,9 @@ func (s *FleetService) UpdateSite(ctx context.Context, companyID, id string, in 
 	setOptional(&existing.City, in.City)
 	setOptional(&existing.Province, in.Province)
 	setOptional(&existing.Postcode, in.Postcode)
-	setOptional(&existing.SitePICPhone, in.PICPhone)
+	if err := ApplyPICs(&existing, in); err != nil {
+		return nil, err
+	}
 	setOptional(&existing.Notes, in.Notes)
 
 	if in.Latitude != nil || in.Longitude != nil {

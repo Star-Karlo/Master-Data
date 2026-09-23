@@ -815,7 +815,23 @@ ensure("sites", {
       geofenceRadiusM: { bsonType: ["int", "null"] },
 
       // Who to call at the gate. Named for what it is: not the company's
-      // switchboard but the person in charge of this site.
+      // switchboard but the person in charge of this site. `pics` is the
+      // list; exactly one entry is the default, and sitePicName /
+      // sitePicPhone mirror that default for readers that predate the list.
+      pics: {
+        bsonType: "array",
+        items: {
+          bsonType: "object",
+          required: ["id", "name"],
+          properties: {
+            id: { bsonType: "string" },
+            name: { bsonType: "string" },
+            phone: { bsonType: ["string", "null"] },
+            isDefault: { bsonType: "bool" },
+          },
+        },
+      },
+      sitePicName: { bsonType: ["string", "null"] },
       sitePicPhone: { bsonType: ["string", "null"] },
       notes: { bsonType: ["string", "null"] },
       picUserIds: { bsonType: "array", items: { bsonType: "string" } },

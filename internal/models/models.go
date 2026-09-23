@@ -965,9 +965,15 @@ type Site struct {
 
 	// Who to call at the gate — the person in charge of this site, not the
 	// company switchboard.
-	SitePICPhone *string  `bson:"sitePicPhone" json:"sitePicPhone,omitempty"`
-	Notes        *string  `bson:"notes" json:"notes,omitempty"`
-	PICUserIDs   []string `bson:"picUserIds" json:"picUserIds"`
+	// PICs are the people at the gate. One is the default: the one the
+	// driver app proposes for the handover code and the planner sees first
+	// when placing an order. SitePICName / SitePICPhone mirror that default
+	// for readers that predate the list (gRPC, the FMS projection).
+	PICs         []SitePIC `bson:"pics" json:"pics"`
+	SitePICName  *string   `bson:"sitePicName" json:"sitePicName,omitempty"`
+	SitePICPhone *string   `bson:"sitePicPhone" json:"sitePicPhone,omitempty"`
+	Notes        *string   `bson:"notes" json:"notes,omitempty"`
+	PICUserIDs   []string  `bson:"picUserIds" json:"picUserIds"`
 	// CustomerCompanyID says whose site this is when a transporter keeps
 	// its customers' warehouses in its own register (MyWarehouse groups
 	// them per customer). Empty for the company's own sites.
@@ -979,8 +985,19 @@ type Site struct {
 
 func (Site) CollectionName() string { return config.Collection("sites") }
 
+// SitePIC is one contact at a site.
+type SitePIC struct {
+	ID        string `bson:"id" json:"id"`
+	Name      string `bson:"name" json:"name"`
+	Phone     string `bson:"phone" json:"phone,omitempty"`
+	IsDefault bool   `bson:"isDefault" json:"isDefault"`
+}
+
 func (s *Site) BeforeWrite() {
 	s.NameNormalised = normalise.Name(s.Name)
+	if s.PICs == nil {
+		s.PICs = []SitePIC{}
+	}
 	// A nil map would be written as BSON null, and the collection validator
 	// declares attributes an object. Dropping the field entirely — through
 	// omitempty on the tag — is what "none set" actually means; writing an

@@ -466,6 +466,7 @@ func toProtoWarehouse(w services.Warehouse) *masterdatav1.Warehouse {
 		Latitude:             w.Latitude,
 		Longitude:            w.Longitude,
 		GeofenceRadiusMeters: int32(w.GeofenceRadiusMeters), //nolint:gosec // metres, bounded
+		PicName:              w.PICName,
 		PicPhone:             w.PICPhone,
 		CreatedAt:            timestamppb.New(w.CreatedAt),
 		UpdatedAt:            timestamppb.New(w.UpdatedAt),

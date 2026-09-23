@@ -469,19 +469,37 @@ type warehouseRequest struct {
 
 	PICName  string `json:"picName"`
 	PICPhone string `json:"picPhone"`
-	Notes    string `json:"notes"`
+	// Pics replaces the contact list when present (nil = untouched). One
+	// is default; picName/picPhone above are the old single-contact form.
+	Pics  *[]warehousePIC `json:"pics"`
+	Notes string          `json:"notes"`
 	// The customer this site belongs to (MyWarehouse groups per customer).
 	CustomerCompanyID *string `json:"customerCompanyId"`
 }
 
+type warehousePIC struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Phone     string `json:"phone"`
+	IsDefault bool   `json:"isDefault"`
+}
+
 func (r warehouseRequest) toInput() services.SiteInput {
+	var pics *[]services.SitePICInput
+	if r.Pics != nil {
+		list := make([]services.SitePICInput, 0, len(*r.Pics))
+		for _, p := range *r.Pics {
+			list = append(list, services.SitePICInput{ID: p.ID, Name: p.Name, Phone: p.Phone, IsDefault: p.IsDefault})
+		}
+		pics = &list
+	}
 	return services.SiteInput{
 		Name: r.Name, SiteType: r.SiteType,
 		Address: r.Address, Street: r.Street, District: r.District,
 		City: r.City, Province: r.Province, Postcode: r.Postcode,
 		Latitude: r.Latitude, Longitude: r.Longitude,
 		GeofenceRadiusM: r.GeofenceRadiusMeters,
-		PICName:         r.PICName, PICPhone: r.PICPhone, Notes: r.Notes,
+		PICName:         r.PICName, PICPhone: r.PICPhone, PICs: pics, Notes: r.Notes,
 		CustomerCompanyID: r.CustomerCompanyID,
 	}
 }
