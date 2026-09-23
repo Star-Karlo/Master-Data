@@ -346,6 +346,10 @@ message Warehouse {
   bool deleted = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  // The console users who are PICs of this site. Web-Field uses it to decide
+  // whose inbox an arriving shipment belongs in; pic_name / pic_phone above
+  // stay the default contact for the handover message.
+  repeated string pic_user_ids = 15;
 }
 
 message GetWarehouseRequest {

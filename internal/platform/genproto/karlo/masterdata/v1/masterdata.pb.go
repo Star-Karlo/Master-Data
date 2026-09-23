@@ -2066,8 +2066,12 @@ type Warehouse struct {
 	Deleted              bool                   `protobuf:"varint,12,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt            *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The console users who are PICs of this site. Web-Field uses it to decide
+	// whose inbox an arriving shipment belongs in; pic_name / pic_phone above
+	// stay the default contact for the handover message.
+	PicUserIds    []string `protobuf:"bytes,15,rep,name=pic_user_ids,json=picUserIds,proto3" json:"pic_user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Warehouse) Reset() {
@@ -2194,6 +2198,13 @@ func (x *Warehouse) GetCreatedAt() *timestamppb.Timestamp {
 func (x *Warehouse) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *Warehouse) GetPicUserIds() []string {
+	if x != nil {
+		return x.PicUserIds
 	}
 	return nil
 }
@@ -2566,7 +2577,7 @@ const file_karlo_masterdata_v1_masterdata_proto_rawDesc = "" +
 	"\x18GetTrucksByDriverRequest\x12\x1b\n" +
 	"\tdriver_id\x18\x01 \x01(\tR\bdriverId\"O\n" +
 	"\x19GetTrucksByDriverResponse\x122\n" +
-	"\x06trucks\x18\x01 \x03(\v2\x1a.karlo.masterdata.v1.TruckR\x06trucks\"\xda\x03\n" +
+	"\x06trucks\x18\x01 \x03(\v2\x1a.karlo.masterdata.v1.TruckR\x06trucks\"\xfc\x03\n" +
 	"\tWarehouse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -2586,7 +2597,9 @@ const file_karlo_masterdata_v1_masterdata_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"%\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12 \n" +
+	"\fpic_user_ids\x18\x0f \x03(\tR\n" +
+	"picUserIds\"%\n" +
 	"\x13GetWarehouseRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"T\n" +
 	"\x14GetWarehouseResponse\x12<\n" +

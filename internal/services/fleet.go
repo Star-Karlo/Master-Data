@@ -93,6 +93,9 @@ type Warehouse struct {
 	PICName  string           `json:"picName,omitempty"`
 	PICPhone string           `json:"picPhone,omitempty"`
 	PICs     []models.SitePIC `json:"pics"`
+	// PICUserIDs are the console accounts who act for this site. Web-Field
+	// lists an arriving shipment in their inbox.
+	PICUserIDs []string `json:"picUserIds"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -359,6 +362,7 @@ func toWarehouse(site models.Site) Warehouse {
 		PICName:           deref(site.SitePICName),
 		PICPhone:          deref(site.SitePICPhone),
 		PICs:              site.PICs,
+		PICUserIDs:        site.PICUserIDs,
 		CustomerCompanyID: deref(site.CustomerCompanyID),
 		CreatedAt:         site.CreatedAt,
 		UpdatedAt:         site.UpdatedAt,
@@ -376,6 +380,9 @@ func toWarehouse(site models.Site) Warehouse {
 	}
 	if w.PICs == nil {
 		w.PICs = []models.SitePIC{}
+	}
+	if w.PICUserIDs == nil {
+		w.PICUserIDs = []string{}
 	}
 
 	return w
