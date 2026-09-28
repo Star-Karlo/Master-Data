@@ -469,9 +469,25 @@ func toProtoWarehouse(w services.Warehouse) *masterdatav1.Warehouse {
 		PicName:              w.PICName,
 		PicPhone:             w.PICPhone,
 		PicUserIds:           w.PICUserIDs,
+		Pics:                 toProtoSitePICs(w.PICs),
 		CreatedAt:            timestamppb.New(w.CreatedAt),
 		UpdatedAt:            timestamppb.New(w.UpdatedAt),
 	}
+}
+
+// toProtoSitePICs carries the whole gate list, not just the default: the
+// driver app offers it when the named PIC is not the one on duty.
+func toProtoSitePICs(pics []models.SitePIC) []*masterdatav1.SitePIC {
+	if len(pics) == 0 {
+		return nil
+	}
+	out := make([]*masterdatav1.SitePIC, 0, len(pics))
+	for _, p := range pics {
+		out = append(out, &masterdatav1.SitePIC{
+			Id: p.ID, Name: p.Name, Phone: p.Phone, IsDefault: p.IsDefault,
+		})
+	}
+	return out
 }
 
 func pageInfo(p query.Params, total int64) *commonv1.PageInfo {

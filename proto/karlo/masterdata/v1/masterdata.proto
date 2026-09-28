@@ -350,6 +350,17 @@ message Warehouse {
   // whose inbox an arriving shipment belongs in; pic_name / pic_phone above
   // stay the default contact for the handover message.
   repeated string pic_user_ids = 15;
+  // Everyone on the gate list, so a driver whose named PIC is not the one on
+  // duty can pick a registered colleague instead of typing a number.
+  repeated SitePIC pics = 16;
+}
+
+// SitePIC is one contact at a site.
+message SitePIC {
+  string id = 1;
+  string name = 2;
+  string phone = 3;
+  bool is_default = 4;
 }
 
 message GetWarehouseRequest {
