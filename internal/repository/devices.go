@@ -6,6 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/karlo/masterdata-service/internal/models"
 )
@@ -125,4 +126,65 @@ func (r *DeviceResolver) VehicleAt(ctx context.Context, imei string, at time.Tim
 		return "", false, err
 	}
 	return a.VehicleID, true, nil
+}
+
+// AssignmentPeriod is one stretch during which a vehicle carried one device.
+type AssignmentPeriod struct {
+	IMEI       string
+	VehicleID  string
+	FittedAt   time.Time
+	UnfittedAt *time.Time // nil: still fitted
+}
+
+// PeriodsFor is every device a vehicle carried during a window, with the
+// stretch each was fitted for.
+//
+// VehicleAt and IMEIsAt answer about one instant, which is all live tracking
+// needs. A question about a STRETCH of time cannot be answered that way: a
+// truck that changed device mid-month carried two, and asking "which device
+// does it have" at either end attributes half the month to the wrong one.
+// Anything reading a vehicle's history must walk these periods and ask the
+// telemetry store once per period.
+//
+// Open-ended periods — a device still fitted — are returned with UnfittedAt
+// nil rather than clamped to `to`, so the caller can tell "still on the truck"
+// from "removed exactly then".
+func (r *DeviceResolver) PeriodsFor(ctx context.Context, companyID, vehicleID string, from, to time.Time) ([]AssignmentPeriod, error) {
+	// Overlap, not containment: a device fitted before the window and removed
+	// inside it carried the truck for part of the window and must be
+	// included. The two conditions are "started before the window ended" and
+	// "had not been removed when the window began".
+	filter := bson.M{
+		"companyId": companyID,
+		"vehicleId": vehicleID,
+		"fittedAt":  bson.M{"$lte": to},
+		"$or": []bson.M{
+			{"unfittedAt": nil},
+			{"unfittedAt": bson.M{"$gt": from}},
+		},
+	}
+
+	cur, err := r.assignments.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "fittedAt", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = cur.Close(ctx) }()
+
+	var out []AssignmentPeriod
+	for cur.Next(ctx) {
+		var a models.TrackerAssignment
+		if err := cur.Decode(&a); err != nil {
+			return nil, err
+		}
+		// A dashcam has no IMEI and produces no positions; it is in the
+		// history for the audit, not for this question.
+		if a.IMEI == "" {
+			continue
+		}
+		out = append(out, AssignmentPeriod{
+			IMEI: a.IMEI, VehicleID: a.VehicleID,
+			FittedAt: a.FittedAt, UnfittedAt: a.UnfittedAt,
+		})
+	}
+	return out, cur.Err()
 }

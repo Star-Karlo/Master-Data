@@ -225,3 +225,60 @@ func TestEmbeddedBaseIsWrittenFlat(t *testing.T) {
 		}
 	}
 }
+
+// A window is not an instant, which is the whole reason this method exists.
+func TestPeriodsForCoversEveryDeviceTheVehicleCarried(t *testing.T) {
+	db := deviceTestDB(t)
+	ctx := context.Background()
+	coll := db.Collection(models.TrackerAssignment{}.CollectionName())
+	company := "co-periods"
+	_, _ = coll.DeleteMany(ctx, bson.M{"companyId": company})
+
+	jan := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	mar := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	jun := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	sep := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+
+	_, err := coll.InsertMany(ctx, []interface{}{
+		// The truck wore one device until March, then another, still fitted.
+		bson.M{"companyId": company, "vehicleId": "truck-a", "imei": "111", "fittedAt": jan, "unfittedAt": mar},
+		bson.M{"companyId": company, "vehicleId": "truck-a", "imei": "222", "fittedAt": mar, "unfittedAt": nil},
+		// A dashcam on the same truck: in the history, but it reports no
+		// positions, so it is not an answer to "where was this truck".
+		bson.M{"companyId": company, "vehicleId": "truck-a", "deviceId": "cam-1", "fittedAt": jan, "unfittedAt": nil},
+		// Another truck's device must not appear.
+		bson.M{"companyId": company, "vehicleId": "truck-b", "imei": "333", "fittedAt": jan, "unfittedAt": nil},
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	r := NewDeviceResolver(db)
+	got, err := r.PeriodsFor(ctx, company, "truck-a", jan, sep)
+	if err != nil {
+		t.Fatalf("PeriodsFor: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d periods, want both devices the truck carried: %+v", len(got), got)
+	}
+	if got[0].IMEI != "111" || got[1].IMEI != "222" {
+		t.Errorf("periods out of order or wrong devices: %+v", got)
+	}
+	if got[1].UnfittedAt != nil {
+		t.Error("a device still fitted should report no end, so the caller can tell that from a removal")
+	}
+
+	// A window entirely inside the second posting sees only that device —
+	// but a window straddling the change must see both, which is the case
+	// that silently corrupts a report when it is got wrong.
+	only, _ := r.PeriodsFor(ctx, company, "truck-a", jun, sep)
+	if len(only) != 1 || only[0].IMEI != "222" {
+		t.Errorf("window after the swap = %+v, want only the current device", only)
+	}
+	straddling, _ := r.PeriodsFor(ctx, company, "truck-a",
+		time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if len(straddling) != 2 {
+		t.Errorf("window across the swap = %+v, want both devices", straddling)
+	}
+}
