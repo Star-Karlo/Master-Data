@@ -394,3 +394,13 @@ func deref(s *string) string {
 	}
 	return *s
 }
+
+// DeviceAssignments is which devices a vehicle carried over a window, or
+// every vehicle of the company when vehicleID is empty.
+//
+// The fit history is master data's to answer: a consumer that keeps its own
+// copy reconciles against this, and one reading a vehicle's telemetry walks
+// these periods rather than resolving the device as it is today.
+func (s *FleetService) DeviceAssignments(ctx context.Context, companyID, vehicleID string, from, to time.Time) ([]repository.AssignmentPeriod, error) {
+	return s.devices.PeriodsFor(ctx, companyID, vehicleID, from, to)
+}

@@ -137,7 +137,8 @@ type AssignmentPeriod struct {
 }
 
 // PeriodsFor is every device a vehicle carried during a window, with the
-// stretch each was fitted for.
+// stretch each was fitted for. An empty vehicleID asks for every vehicle of
+// the company, ordered by vehicle and then by time.
 //
 // VehicleAt and IMEIsAt answer about one instant, which is all live tracking
 // needs. A question about a STRETCH of time cannot be answered that way: a
@@ -156,7 +157,6 @@ func (r *DeviceResolver) PeriodsFor(ctx context.Context, companyID, vehicleID st
 	// "had not been removed when the window began".
 	filter := bson.M{
 		"companyId": companyID,
-		"vehicleId": vehicleID,
 		"fittedAt":  bson.M{"$lte": to},
 		"$or": []bson.M{
 			{"unfittedAt": nil},
@@ -164,7 +164,15 @@ func (r *DeviceResolver) PeriodsFor(ctx context.Context, companyID, vehicleID st
 		},
 	}
 
-	cur, err := r.assignments.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "fittedAt", Value: 1}}))
+	// An empty vehicle asks for the whole company, which is how a consumer
+	// reconciles its own copy of the history: one query rather than one per
+	// vehicle, and the same question either way.
+	if vehicleID != "" {
+		filter["vehicleId"] = vehicleID
+	}
+
+	cur, err := r.assignments.Find(ctx, filter,
+		options.Find().SetSort(bson.D{{Key: "vehicleId", Value: 1}, {Key: "fittedAt", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}

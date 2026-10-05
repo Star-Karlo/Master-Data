@@ -40,6 +40,16 @@ service MasterDataService {
   // the fit history; FMS projects this into its own tables.
   rpc ListTrackers(ListTrackersRequest) returns (ListTrackersResponse);
 
+  // ListDeviceAssignments answers which device a vehicle carried, and when,
+  // over a window of time.
+  //
+  // ListTrackers says where a device is fitted NOW, which is all a live map
+  // needs. Anything reading a stretch of history has to ask this instead: a
+  // truck that changed device mid-window carried two, and resolving to the
+  // current one credits part of the window to another truck's journey —
+  // silently, because the answer is a plausible IMEI rather than an error.
+  rpc ListDeviceAssignments(ListDeviceAssignmentsRequest) returns (ListDeviceAssignmentsResponse);
+
   // ListTruckGroups returns every vehicle group of a company, retired ones
   // included (deleted = true) so a consumer can retire its copy. Master data
   // owns groups; FMS's fleet groups are a projection of them. Membership is
@@ -270,6 +280,36 @@ message ListTrackersRequest {
 message ListTrackersResponse {
   repeated Tracker trackers = 1;
   karlo.common.v1.PageInfo page_info = 2;
+}
+
+message ListDeviceAssignmentsRequest {
+  string company_id = 1;
+  // Empty asks for the WHOLE company, which is how a consumer reconciles its
+  // own copy: one call rather than one per vehicle.
+  string vehicle_id = 2;
+  // The window. Both required: there is no "now" default, because the wrong
+  // answer here is not an error but a plausible device belonging to another
+  // truck's journey, and every caller should have to say which period it
+  // means.
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+}
+
+// One stretch during which a vehicle carried one device.
+message DeviceAssignment {
+  string vehicle_id = 1;
+  string imei = 2;
+  google.protobuf.Timestamp fitted_at = 3;
+  // Unset means still fitted — deliberately not clamped to the window's end,
+  // so "still on the truck" stays distinguishable from "removed exactly then".
+  google.protobuf.Timestamp unfitted_at = 4;
+}
+
+message ListDeviceAssignmentsResponse {
+  // Ordered by fitted_at, so a caller may walk them without sorting. Devices
+  // that report no positions (dashcams) are absent: they are in the fit
+  // history for the audit, not for this question.
+  repeated DeviceAssignment assignments = 1;
 }
 
 message ListTruckGroupsRequest {

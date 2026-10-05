@@ -19,19 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MasterDataService_GetCatalogItem_FullMethodName      = "/karlo.masterdata.v1.MasterDataService/GetCatalogItem"
-	MasterDataService_ListCatalogItems_FullMethodName    = "/karlo.masterdata.v1.MasterDataService/ListCatalogItems"
-	MasterDataService_ResolveCatalogItems_FullMethodName = "/karlo.masterdata.v1.MasterDataService/ResolveCatalogItems"
-	MasterDataService_ValidateReferences_FullMethodName  = "/karlo.masterdata.v1.MasterDataService/ValidateReferences"
-	MasterDataService_GetTruck_FullMethodName            = "/karlo.masterdata.v1.MasterDataService/GetTruck"
-	MasterDataService_ListTrucks_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/ListTrucks"
-	MasterDataService_ListTrackers_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/ListTrackers"
-	MasterDataService_ListTruckGroups_FullMethodName     = "/karlo.masterdata.v1.MasterDataService/ListTruckGroups"
-	MasterDataService_ListDrivers_FullMethodName         = "/karlo.masterdata.v1.MasterDataService/ListDrivers"
-	MasterDataService_GetDriver_FullMethodName           = "/karlo.masterdata.v1.MasterDataService/GetDriver"
-	MasterDataService_GetTrucksByDriver_FullMethodName   = "/karlo.masterdata.v1.MasterDataService/GetTrucksByDriver"
-	MasterDataService_GetWarehouse_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/GetWarehouse"
-	MasterDataService_ListWarehouses_FullMethodName      = "/karlo.masterdata.v1.MasterDataService/ListWarehouses"
+	MasterDataService_GetCatalogItem_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/GetCatalogItem"
+	MasterDataService_ListCatalogItems_FullMethodName      = "/karlo.masterdata.v1.MasterDataService/ListCatalogItems"
+	MasterDataService_ResolveCatalogItems_FullMethodName   = "/karlo.masterdata.v1.MasterDataService/ResolveCatalogItems"
+	MasterDataService_ValidateReferences_FullMethodName    = "/karlo.masterdata.v1.MasterDataService/ValidateReferences"
+	MasterDataService_GetTruck_FullMethodName              = "/karlo.masterdata.v1.MasterDataService/GetTruck"
+	MasterDataService_ListTrucks_FullMethodName            = "/karlo.masterdata.v1.MasterDataService/ListTrucks"
+	MasterDataService_ListTrackers_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/ListTrackers"
+	MasterDataService_ListDeviceAssignments_FullMethodName = "/karlo.masterdata.v1.MasterDataService/ListDeviceAssignments"
+	MasterDataService_ListTruckGroups_FullMethodName       = "/karlo.masterdata.v1.MasterDataService/ListTruckGroups"
+	MasterDataService_ListDrivers_FullMethodName           = "/karlo.masterdata.v1.MasterDataService/ListDrivers"
+	MasterDataService_GetDriver_FullMethodName             = "/karlo.masterdata.v1.MasterDataService/GetDriver"
+	MasterDataService_GetTrucksByDriver_FullMethodName     = "/karlo.masterdata.v1.MasterDataService/GetTrucksByDriver"
+	MasterDataService_GetWarehouse_FullMethodName          = "/karlo.masterdata.v1.MasterDataService/GetWarehouse"
+	MasterDataService_ListWarehouses_FullMethodName        = "/karlo.masterdata.v1.MasterDataService/ListWarehouses"
 )
 
 // MasterDataServiceClient is the client API for MasterDataService service.
@@ -66,6 +67,15 @@ type MasterDataServiceClient interface {
 	// with where each is fitted now. Master data owns the device register and
 	// the fit history; FMS projects this into its own tables.
 	ListTrackers(ctx context.Context, in *ListTrackersRequest, opts ...grpc.CallOption) (*ListTrackersResponse, error)
+	// ListDeviceAssignments answers which device a vehicle carried, and when,
+	// over a window of time.
+	//
+	// ListTrackers says where a device is fitted NOW, which is all a live map
+	// needs. Anything reading a stretch of history has to ask this instead: a
+	// truck that changed device mid-window carried two, and resolving to the
+	// current one credits part of the window to another truck's journey —
+	// silently, because the answer is a plausible IMEI rather than an error.
+	ListDeviceAssignments(ctx context.Context, in *ListDeviceAssignmentsRequest, opts ...grpc.CallOption) (*ListDeviceAssignmentsResponse, error)
 	// ListTruckGroups returns every vehicle group of a company, retired ones
 	// included (deleted = true) so a consumer can retire its copy. Master data
 	// owns groups; FMS's fleet groups are a projection of them. Membership is
@@ -157,6 +167,16 @@ func (c *masterDataServiceClient) ListTrackers(ctx context.Context, in *ListTrac
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTrackersResponse)
 	err := c.cc.Invoke(ctx, MasterDataService_ListTrackers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterDataServiceClient) ListDeviceAssignments(ctx context.Context, in *ListDeviceAssignmentsRequest, opts ...grpc.CallOption) (*ListDeviceAssignmentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDeviceAssignmentsResponse)
+	err := c.cc.Invoke(ctx, MasterDataService_ListDeviceAssignments_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +275,15 @@ type MasterDataServiceServer interface {
 	// with where each is fitted now. Master data owns the device register and
 	// the fit history; FMS projects this into its own tables.
 	ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error)
+	// ListDeviceAssignments answers which device a vehicle carried, and when,
+	// over a window of time.
+	//
+	// ListTrackers says where a device is fitted NOW, which is all a live map
+	// needs. Anything reading a stretch of history has to ask this instead: a
+	// truck that changed device mid-window carried two, and resolving to the
+	// current one credits part of the window to another truck's journey —
+	// silently, because the answer is a plausible IMEI rather than an error.
+	ListDeviceAssignments(context.Context, *ListDeviceAssignmentsRequest) (*ListDeviceAssignmentsResponse, error)
 	// ListTruckGroups returns every vehicle group of a company, retired ones
 	// included (deleted = true) so a consumer can retire its copy. Master data
 	// owns groups; FMS's fleet groups are a projection of them. Membership is
@@ -302,6 +331,9 @@ func (UnimplementedMasterDataServiceServer) ListTrucks(context.Context, *ListTru
 }
 func (UnimplementedMasterDataServiceServer) ListTrackers(context.Context, *ListTrackersRequest) (*ListTrackersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTrackers not implemented")
+}
+func (UnimplementedMasterDataServiceServer) ListDeviceAssignments(context.Context, *ListDeviceAssignmentsRequest) (*ListDeviceAssignmentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDeviceAssignments not implemented")
 }
 func (UnimplementedMasterDataServiceServer) ListTruckGroups(context.Context, *ListTruckGroupsRequest) (*ListTruckGroupsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTruckGroups not implemented")
@@ -468,6 +500,24 @@ func _MasterDataService_ListTrackers_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MasterDataService_ListDeviceAssignments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDeviceAssignmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterDataServiceServer).ListDeviceAssignments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MasterDataService_ListDeviceAssignments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterDataServiceServer).ListDeviceAssignments(ctx, req.(*ListDeviceAssignmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MasterDataService_ListTruckGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListTruckGroupsRequest)
 	if err := dec(in); err != nil {
@@ -610,6 +660,10 @@ var MasterDataService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTrackers",
 			Handler:    _MasterDataService_ListTrackers_Handler,
+		},
+		{
+			MethodName: "ListDeviceAssignments",
+			Handler:    _MasterDataService_ListDeviceAssignments_Handler,
 		},
 		{
 			MethodName: "ListTruckGroups",

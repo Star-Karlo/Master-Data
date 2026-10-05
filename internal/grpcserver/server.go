@@ -306,6 +306,47 @@ func (s *Server) ListTrackers(ctx context.Context, req *masterdatav1.ListTracker
 	return &masterdatav1.ListTrackersResponse{Trackers: out, PageInfo: pageInfo(p, total)}, nil
 }
 
+func (s *Server) ListDeviceAssignments(ctx context.Context, req *masterdatav1.ListDeviceAssignmentsRequest) (*masterdatav1.ListDeviceAssignmentsResponse, error) {
+	if req.GetCompanyId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	}
+	// Both ends required, with no "now" default. The wrong answer here is not
+	// an error but a plausible device belonging to another truck's journey,
+	// so every caller says which period it means.
+	if req.GetFrom() == nil || req.GetTo() == nil {
+		return nil, status.Error(codes.InvalidArgument, "from and to are required")
+	}
+	from, to := req.GetFrom().AsTime(), req.GetTo().AsTime()
+	if to.Before(from) {
+		return nil, status.Error(codes.InvalidArgument, "to is before from")
+	}
+
+	started := time.Now()
+	periods, err := s.fleet.DeviceAssignments(ctx, req.GetCompanyId(), req.GetVehicleId(), from, to)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	slog.DebugContext(ctx, "grpc ListDeviceAssignments",
+		"company", req.GetCompanyId(), "vehicle", req.GetVehicleId(),
+		"periods", len(periods), "ms", time.Since(started).Milliseconds())
+
+	out := make([]*masterdatav1.DeviceAssignment, 0, len(periods))
+	for _, p := range periods {
+		a := &masterdatav1.DeviceAssignment{
+			VehicleId: p.VehicleID,
+			Imei:      p.IMEI,
+			FittedAt:  timestamppb.New(p.FittedAt),
+		}
+		// Left unset when the device is still fitted, rather than clamped to
+		// the window, so a caller can tell that from a removal at that moment.
+		if p.UnfittedAt != nil {
+			a.UnfittedAt = timestamppb.New(*p.UnfittedAt)
+		}
+		out = append(out, a)
+	}
+	return &masterdatav1.ListDeviceAssignmentsResponse{Assignments: out}, nil
+}
+
 func (s *Server) ListTruckGroups(ctx context.Context, req *masterdatav1.ListTruckGroupsRequest) (*masterdatav1.ListTruckGroupsResponse, error) {
 	if req.GetCompanyId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "company_id is required")
