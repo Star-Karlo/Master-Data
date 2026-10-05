@@ -843,10 +843,27 @@ ensure("sites", {
     },
   },
 }, [
-  // Unique per company AND type: a depot and a warehouse may share a name,
-  // because the yard and the warehouse next to it are named after the place.
-  { keys: { companyId: 1, siteType: 1, nameNormalised: 1 },
-    opts: { unique: true, name: "uq_site_name",
+  // Unique per company, type AND customer.
+  //
+  // Type, because a depot and a warehouse may share a name: the yard and the
+  // warehouse next to it are named after the place.
+  //
+  // Customer, because a transporter keeps its customers' warehouses in its own
+  // register and MyWarehouse groups them per customer — so two customers each
+  // having a "Gudang Muat 1" is the ordinary case, not a mistake. Leaving
+  // customerCompanyId out made the register behave as one flat namespace,
+  // which refused the second customer's site and told the planner their own
+  // company already had one. The company's OWN sites all carry null here, so
+  // they stay unique among themselves.
+  //
+  // Renamed from uq_site_name deliberately. This script cannot redefine an
+  // index whose NAME is unchanged — Mongo refuses a create that collides on
+  // the name, the run reports FAILED and the old index survives, so a schema
+  // change that only altered the keys would silently not apply. Under a new
+  // name the old one is simply no longer declared, and the drop-undeclared
+  // pass removes it.
+  { keys: { companyId: 1, siteType: 1, customerCompanyId: 1, nameNormalised: 1 },
+    opts: { unique: true, name: "uq_site_name_per_customer",
             partialFilterExpression: { deleted: false } } },
   { keys: { companyId: 1, deleted: 1 }, opts: { name: "ix_sites_company" } },
   // The reason `location` is GeoJSON rather than two numbers: this index

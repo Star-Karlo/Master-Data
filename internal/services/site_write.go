@@ -189,8 +189,7 @@ func (s *FleetService) CreateSite(ctx context.Context, companyID string, in Site
 
 	if err := s.sites.Create(ctx, site); err != nil {
 		if errors.Is(err, repository.ErrDuplicate) {
-			return nil, fmt.Errorf("%w: your company already has a site called %q",
-				ErrValidation, site.Name)
+			return nil, duplicateSiteName(site.Name, site.CustomerCompanyID)
 		}
 		return nil, err
 	}
@@ -253,8 +252,7 @@ func (s *FleetService) UpdateSite(ctx context.Context, companyID, id string, in 
 
 	if err := s.sites.Update(ctx, oid, &existing); err != nil {
 		if errors.Is(err, repository.ErrDuplicate) {
-			return nil, fmt.Errorf("%w: your company already has a site called %q",
-				ErrValidation, existing.Name)
+			return nil, duplicateSiteName(existing.Name, existing.CustomerCompanyID)
 		}
 		return nil, err
 	}
@@ -332,4 +330,17 @@ func nilIfBlank(v string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+// duplicateSiteName explains a refused name in terms of the register the
+// planner is looking at.
+//
+// Names are unique per customer, so "your company already has one" was wrong
+// whenever the clash was inside one customer's list and baffling when it was
+// not: the planner is looking at that customer's sites and sees no such name.
+func duplicateSiteName(name string, customerCompanyID *string) error {
+	if customerCompanyID != nil && *customerCompanyID != "" {
+		return fmt.Errorf("%w: this customer already has a site called %q", ErrValidation, name)
+	}
+	return fmt.Errorf("%w: your company already has a site called %q", ErrValidation, name)
 }
